@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Debug URL Helper",
+  "version": "1.0",
+  "description": "Adds ?debug=true to the current page URL",
+  "permissions": [
+    "activeTab",
+    "tabs"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Add Debug Parameter"
+  }
+}
