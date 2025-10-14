@@ -93,6 +93,14 @@ body {
   background-color: #fee2e2;
 }
 
+.measure-button {
+  background-color: #f0fdf4;
+}
+
+.measure-button:hover {
+  background-color: #dcfce7;
+}
+
 .button-icon {
   width: 24px;
   height: 24px;
@@ -105,6 +113,10 @@ body {
 
 .clear-icon {
   color: #dc2626;
+}
+
+.measure-icon {
+  color: #16a34a;
 }
 
 .button-label {

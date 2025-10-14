@@ -126,8 +126,12 @@ function clearAllForms() {
   return clearedCount;
 }
 
+console.log('Content.js loaded successfully');
+
 // Listen for messages from the popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('Content.js received message:', request.action);
+  
   if (request.action === 'clearForms') {
     try {
       const clearedCount = clearAllForms();
