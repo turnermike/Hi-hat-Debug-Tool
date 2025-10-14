@@ -151,6 +151,180 @@ body {
   border-color: #fecaca;
 }
 
+/* WordPress Debug Section */
+.wordpress-section {
+  margin-top: 20px;
+  margin-bottom: 16px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 16px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.section-icon {
+  width: 16px;
+  height: 16px;
+  color: #0073aa;
+  margin-right: 8px;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0073aa;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.wp-button-grid {
+  margin-bottom: 8px;
+}
+
+.wp-button-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 8px;
+}
+
+.wp-button-cell {
+  text-align: center;
+}
+
+.wp-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 32px;
+  border: 1px solid #0073aa;
+  border-radius: 4px;
+  background-color: transparent;
+  cursor: pointer;
+  transition: all 150ms ease;
+  font-family: inherit;
+}
+
+.wp-button:hover {
+  background-color: #0073aa;
+  color: white;
+}
+
+.wp-button:active {
+  transform: scale(0.98);
+}
+
+.wp-button.active {
+  background-color: #0073aa;
+  color: white;
+}
+
+.wp-button-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #0073aa;
+}
+
+.wp-button:hover .wp-button-label,
+.wp-button.active .wp-button-label {
+  color: white;
+}
+
+/* Specific WordPress button colors */
+.wp-debug {
+  border-color: #d63638;
+}
+
+.wp-debug:hover,
+.wp-debug.active {
+  background-color: #d63638;
+}
+
+.wp-debug .wp-button-label {
+  color: #d63638;
+}
+
+.wp-query {
+  border-color: #00a32a;
+}
+
+.wp-query:hover,
+.wp-query.active {
+  background-color: #00a32a;
+}
+
+.wp-query .wp-button-label {
+  color: #00a32a;
+}
+
+.wp-template {
+  border-color: #f56500;
+}
+
+.wp-template:hover,
+.wp-template.active {
+  background-color: #f56500;
+}
+
+.wp-template .wp-button-label {
+  color: #f56500;
+}
+
+.wp-admin-bar {
+  border-color: #8c8f94;
+}
+
+.wp-admin-bar:hover,
+.wp-admin-bar.active {
+  background-color: #8c8f94;
+}
+
+.wp-admin-bar .wp-button-label {
+  color: #8c8f94;
+}
+
+.wp-cache {
+  border-color: #9c2eae;
+}
+
+.wp-cache:hover,
+.wp-cache.active {
+  background-color: #9c2eae;
+}
+
+.wp-cache .wp-button-label {
+  color: #9c2eae;
+}
+
+.wp-customizer {
+  border-color: #0073aa;
+}
+
+.wp-customizer:hover,
+.wp-customizer.active {
+  background-color: #0073aa;
+}
+
+.wp-customizer .wp-button-label {
+  color: #0073aa;
+}
+
+.wp-switch-user {
+  border-color: #3c434a;
+}
+
+.wp-switch-user:hover,
+.wp-switch-user.active {
+  background-color: #3c434a;
+}
+
+.wp-switch-user .wp-button-label {
+  color: #3c434a;
+}
+
 /* Footer */
 .footer {
   margin-top: 16px;

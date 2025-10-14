@@ -54,6 +54,73 @@
       </table>
     </div>
     
+    <!-- WordPress Debug Section -->
+    <div id="wordpressSection" class="wordpress-section" style="display: none;">
+      <div class="section-header">
+        <svg class="section-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+        </svg>
+        <span class="section-title">WordPress Debug</span>
+      </div>
+      
+      <div class="wp-button-grid">
+        <table class="wp-button-table">
+          <tr>
+            <td class="wp-button-cell">
+              <button id="wpDebugBtn" class="wp-button wp-debug">
+                <span class="wp-button-label">WP Debug</span>
+              </button>
+            </td>
+            <td class="wp-button-cell">
+              <button id="wpQueryBtn" class="wp-button wp-query">
+                <span class="wp-button-label">Query Debug</span>
+              </button>
+            </td>
+            <td class="wp-button-cell">
+              <button id="wpTemplateBtn" class="wp-button wp-template">
+                <span class="wp-button-label">Template</span>
+              </button>
+            </td>
+          </tr>
+          <tr>
+            <td class="wp-button-cell">
+              <button id="wpAdminBarBtn" class="wp-button wp-admin-bar">
+                <span class="wp-button-label">Admin Bar</span>
+              </button>
+            </td>
+            <td class="wp-button-cell">
+              <button id="wpCacheBtn" class="wp-button wp-cache">
+                <span class="wp-button-label">No Cache</span>
+              </button>
+            </td>
+            <td class="wp-button-cell">
+              <button id="wpCustomizerBtn" class="wp-button wp-customizer">
+                <span class="wp-button-label">Customizer</span>
+              </button>
+            </td>
+          </tr>
+          <!-- User Switching Row (shown only when plugin detected) -->
+          <tr id="userSwitchingRow" style="display: none;">
+            <td class="wp-button-cell">
+              <button id="wpSwitchAdminBtn" class="wp-button wp-switch-user">
+                <span class="wp-button-label">Admin</span>
+              </button>
+            </td>
+            <td class="wp-button-cell">
+              <button id="wpSwitchEditorBtn" class="wp-button wp-switch-user">
+                <span class="wp-button-label">Editor</span>
+              </button>
+            </td>
+            <td class="wp-button-cell">
+              <button id="wpSwitchOffBtn" class="wp-button wp-switch-user">
+                <span class="wp-button-label">Switch Off</span>
+              </button>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+    
     <!-- Status Message -->
     <div id="status" class="status-message status-hidden"></div>
     

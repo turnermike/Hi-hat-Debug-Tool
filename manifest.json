@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Hi-hat Debug Tool",
   "version": "1.1",
-  "description": "Adds ?debug=true to URLs and clears form fields",
+  "description": "Developer tools for debugging: URL parameters, form clearing, measurements, and WordPress-specific debug features",
   "icons": {
     "16": "icon16.png",
     "32": "icon32.png",

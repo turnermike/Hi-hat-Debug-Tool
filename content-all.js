@@ -1,4 +1,115 @@
-console.log('Hi-hat Debug Tool - Content script loading...');
+
+// Debug parameter normalization
+function normalizeDebugParameter() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const debugValue = urlParams.get('debug');
+  
+  // Convert debug=1 to debug=true for sites that expect string values
+  if (debugValue === '1') {
+    const newUrl = new URL(window.location);
+    newUrl.searchParams.set('debug', 'true');
+    
+    // Update the URL without reloading
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, '', newUrl.toString());
+    }
+  }
+}
+
+// Run debug normalization on page load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', normalizeDebugParameter);
+} else {
+  normalizeDebugParameter();
+}
+
+// WordPress detection
+let isWordPressSite = false;
+let wpDebugInfo = {
+  hasAdminBar: false,
+  hasWPAPI: false,
+  hasWPFooter: false,
+  hasUserSwitching: false,
+  version: null,
+  theme: null
+};
+
+function detectWordPress() {
+  // Check for various WordPress indicators
+  const indicators = [
+    // Common WordPress patterns
+    document.querySelector('link[href*="wp-content"]'),
+    document.querySelector('script[src*="wp-content"]'),
+    document.querySelector('link[href*="wp-includes"]'),
+    document.querySelector('script[src*="wp-includes"]'),
+    
+    // WordPress generator meta tag
+    document.querySelector('meta[name="generator"][content*="WordPress"]'),
+    
+    // WordPress admin bar
+    document.querySelector('#wpadminbar'),
+    document.querySelector('.wp-toolbar'),
+    
+    // REST API link
+    document.querySelector('link[rel="https://api.w.org/"]'),
+    
+    // WordPress body classes
+    document.body && document.body.classList.contains('wordpress'),
+    document.body && document.body.className.includes('wp-'),
+    
+    // WordPress specific elements
+    document.querySelector('.wp-content'),
+    document.querySelector('.wp-footer'),
+    document.querySelector('#wp-footer'),
+    
+    // WordPress login/admin patterns
+    document.querySelector('link[href*="wp-login.php"]'),
+    document.querySelector('link[href*="wp-admin"]')
+  ];
+  
+  isWordPressSite = indicators.some(indicator => indicator !== null && indicator !== false);
+  
+  if (isWordPressSite) {
+    // Get more specific WordPress info
+    const generator = document.querySelector('meta[name="generator"][content*="WordPress"]');
+    if (generator) {
+      const versionMatch = generator.content.match(/WordPress ([0-9.]+)/);
+      wpDebugInfo.version = versionMatch ? versionMatch[1] : null;
+    }
+    
+    wpDebugInfo.hasAdminBar = !!document.querySelector('#wpadminbar');
+    wpDebugInfo.hasWPAPI = !!document.querySelector('link[rel="https://api.w.org/"]');
+    wpDebugInfo.hasWPFooter = !!document.querySelector('.wp-footer, #wp-footer');
+    
+    // Check for User Switching plugin
+    wpDebugInfo.hasUserSwitching = !!(
+      document.querySelector('#wpadminbar .user-switching') ||
+      document.querySelector('a[href*="user_switching"]') ||
+      document.querySelector('.user-switching-switch') ||
+      document.body.innerHTML.includes('user_switching_nonce')
+    );
+    
+    // Try to detect theme from body classes
+    if (document.body) {
+      const bodyClasses = document.body.className;
+      const themeMatch = bodyClasses.match(/theme-([\w-]+)/);
+      wpDebugInfo.theme = themeMatch ? themeMatch[1] : null;
+    }
+    
+  }
+  
+  return isWordPressSite;
+}
+
+// Run detection when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', detectWordPress);
+} else {
+  detectWordPress();
+}
+
+// Also check again after a short delay in case content loads dynamically
+setTimeout(detectWordPress, 1000);
 
 // Form clearing functionality
 function clearAllForms() {
@@ -138,7 +249,6 @@ let canvas = null;
 let ctx = null;
 
 function createMeasurementOverlay() {
-  console.log('Creating measurement overlay');
   
   // Remove existing overlay if any
   if (overlay) {
@@ -181,12 +291,10 @@ function createMeasurementOverlay() {
   canvas.addEventListener('mouseup', endMeasurement);
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   
-  console.log('Measurement overlay created');
 }
 
 function setupCanvas() {
   if (!canvas || !ctx) {
-    console.error('Canvas or context not available');
     return;
   }
   
@@ -195,8 +303,6 @@ function setupCanvas() {
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     
-    console.log('Canvas rect:', rect);
-    
     // Use window dimensions as fallback
     const width = rect.width > 0 ? rect.width : window.innerWidth;
     const height = rect.height > 0 ? rect.height : window.innerHeight;
@@ -204,13 +310,10 @@ function setupCanvas() {
     canvas.width = width * dpr;
     canvas.height = height * dpr;
     ctx.scale(dpr, dpr);
-    
-    console.log('Canvas setup complete:', width, 'x', height);
   }, 10);
 }
 
 function activateMeasurement() {
-  console.log('Activating measurement');
   measurementActive = true;
   
   if (!overlay) {
@@ -229,7 +332,6 @@ function activateMeasurement() {
 }
 
 function deactivateMeasurement() {
-  console.log('Deactivating measurement');
   measurementActive = false;
   isDrawing = false;
   
@@ -285,7 +387,6 @@ function hideInstructions() {
 function startMeasurement(e) {
   if (!measurementActive) return;
   
-  console.log('Starting measurement at:', e.clientX, e.clientY);
   isDrawing = true;
   startPoint = { x: e.clientX, y: e.clientY };
 }
@@ -311,8 +412,6 @@ function updateMeasurement(e) {
 
 function endMeasurement(e) {
   if (!measurementActive || !isDrawing || !startPoint) return;
-  
-  console.log('Ending measurement');
   
   const endPoint = { x: e.clientX, y: e.clientY };
   const width = Math.abs(endPoint.x - startPoint.x);
@@ -390,7 +489,6 @@ document.addEventListener('keydown', (e) => {
     if (ctx) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
-    console.log('Measurements cleared');
   }
 });
 
@@ -403,7 +501,6 @@ window.addEventListener('resize', () => {
 
 // Listen for messages from the popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Message received:', request.action);
   
   if (request.action === 'clearForms') {
     try {
@@ -436,6 +533,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     return true;
   }
+  
+  if (request.action === 'checkWordPress') {
+    try {
+      // Re-run detection to make sure we have the latest info
+      detectWordPress();
+      sendResponse({ 
+        success: true, 
+        isWordPress: isWordPressSite,
+        debugInfo: wpDebugInfo
+      });
+    } catch (error) {
+      sendResponse({
+        success: false, 
+        message: 'WordPress detection error: ' + error.message,
+        isWordPress: false
+      });
+    }
+    return true;
+  }
 });
 
 // Clipboard functionality
@@ -444,16 +560,14 @@ function copyToClipboard(text) {
     // Try the modern Clipboard API first
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => {
-        console.log('Dimensions copied to clipboard:', text);
+        // Success
       }).catch(err => {
-        console.log('Clipboard API failed, trying fallback method');
         copyToClipboardFallback(text);
       });
     } else {
       copyToClipboardFallback(text);
     }
   } catch (error) {
-    console.error('Failed to copy to clipboard:', error);
     copyToClipboardFallback(text);
   }
 }
@@ -476,9 +590,8 @@ function copyToClipboardFallback(text) {
     
     // Clean up
     document.body.removeChild(textarea);
-    console.log('Dimensions copied to clipboard (fallback):', text);
   } catch (error) {
-    console.error('Fallback clipboard copy failed:', error);
+    // Fallback copy failed
   }
 }
 
@@ -523,4 +636,3 @@ function showClipboardNotification(text) {
   }, 2000);
 }
 
-console.log('Hi-hat Debug Tool - Content script loaded successfully');
