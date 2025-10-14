@@ -3,21 +3,56 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Debug URL Helper</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Hi-hat Debug Tool</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
-<body class="w-64 p-4 bg-gray-50">
-  <div class="text-center">
-    <h1 class="text-lg font-semibold text-gray-800 mb-4">Debug URL Helper</h1>
+<body style="width: 400px; min-height: 240px;">
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-content">
+        <img src="icon32.png" alt="Hi-hat Logo" class="logo">
+        <div>
+          <h1 class="title">Hi-hat Debug Tool</h1>
+          <p class="subtitle">Development utilities</p>
+        </div>
+      </div>
+    </div>
     
-    <button 
-      id="addDebugBtn" 
-      class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-    >
-      Add ?debug=true
-    </button>
+    <!-- Main Actions -->
+    <div class="button-grid">
+      <table class="button-table">
+        <tr>
+          <td class="button-cell">
+            <button id="addDebugBtn" class="action-button debug-button">
+              <svg class="button-icon debug-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <span class="button-label">Debug</span>
+            </button>
+          </td>
+          <td class="button-cell">
+            <button id="clearFormsBtn" class="action-button clear-button">
+              <svg class="button-icon clear-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+              </svg>
+              <span class="button-label">Clear</span>
+            </button>
+          </td>
+        </tr>
+      </table>
+    </div>
     
-    <div id="status" class="mt-3 text-sm text-gray-600 hidden"></div>
+    <!-- Status Message -->
+    <div id="status" class="status-message status-hidden"></div>
+    
+    <!-- Footer -->
+    <div class="footer">
+      <div class="footer-content">
+        <span>Hi-hat Consulting</span>
+        <span>v1.1</span>
+      </div>
+    </div>
   </div>
   
   <script src="popup.js"></script>

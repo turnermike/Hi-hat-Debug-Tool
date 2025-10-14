@@ -1,14 +1,30 @@
 {
   "manifest_version": 3,
-  "name": "Debug URL Helper",
-  "version": "1.0",
-  "description": "Adds ?debug=true to the current page URL",
+  "name": "Hi-hat Debug Tool",
+  "version": "1.1",
+  "description": "Adds ?debug=true to URLs and clears form fields",
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
   "permissions": [
     "activeTab",
     "tabs"
   ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Add Debug Parameter"
+    "default_title": "Hi-hat Debug Tool",
+    "default_icon": {
+      "16": "icon16.png",
+      "32": "icon32.png"
+    }
   }
 }

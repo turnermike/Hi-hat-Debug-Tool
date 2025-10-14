@@ -1,15 +1,15 @@
 document.addEventListener('DOMContentLoaded', function() {
   const addDebugBtn = document.getElementById('addDebugBtn');
+  const clearFormsBtn = document.getElementById('clearFormsBtn');
   const statusDiv = document.getElementById('status');
 
   function showStatus(message, isError = false) {
     statusDiv.textContent = message;
-    statusDiv.className = `mt-3 text-sm ${isError ? 'text-red-600' : 'text-green-600'}`;
-    statusDiv.classList.remove('hidden');
+    statusDiv.className = `status-message ${isError ? 'status-error' : 'status-success'}`;
     
     // Hide status after 2 seconds
     setTimeout(() => {
-      statusDiv.classList.add('hidden');
+      statusDiv.className = 'status-message status-hidden';
     }, 2000);
   }
 
@@ -48,6 +48,38 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (error) {
       console.error('Error adding debug parameter:', error);
       showStatus('Error: ' + error.message, true);
+    }
+  });
+
+  clearFormsBtn.addEventListener('click', async function() {
+    try {
+      // Get the current active tab
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      if (!tab || !tab.url) {
+        showStatus('Unable to get current tab', true);
+        return;
+      }
+
+      // Send message to content script to clear forms
+      const response = await chrome.tabs.sendMessage(tab.id, { action: 'clearForms' });
+      
+      if (response.success) {
+        showStatus(response.message);
+      } else {
+        showStatus(response.message, true);
+      }
+      
+      // Close popup after successful action
+      if (response.success) {
+        setTimeout(() => {
+          window.close();
+        }, 1500);
+      }
+      
+    } catch (error) {
+      console.error('Error clearing forms:', error);
+      showStatus('Error: Could not clear forms', true);
     }
   });
 });
