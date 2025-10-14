@@ -326,6 +326,11 @@ function endMeasurement(e) {
       width: width,
       height: height
     });
+    
+    // Copy dimensions to clipboard
+    const dimensionText = `${Math.round(width)}×${Math.round(height)}`;
+    copyToClipboard(dimensionText);
+    showClipboardNotification(dimensionText);
   }
   
   isDrawing = false;
@@ -339,12 +344,16 @@ function drawMeasurementBox(start, end, width, height, isActive) {
   const bottom = Math.max(start.y, end.y);
   
   // Set styles
-  ctx.strokeStyle = isActive ? '#3b82f6' : '#ef4444';
   ctx.lineWidth = 2;
   ctx.setLineDash([4, 4]);
   ctx.globalAlpha = 0.8;
   
-  // Draw rectangle
+  // Draw background fill
+  ctx.fillStyle = isActive ? 'rgba(59, 130, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+  ctx.fillRect(left, top, width, height);
+  
+  // Draw border
+  ctx.strokeStyle = isActive ? '#3b82f6' : '#ef4444';
   ctx.strokeRect(left, top, width, height);
   
   // Draw measurements
@@ -428,5 +437,90 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 });
+
+// Clipboard functionality
+function copyToClipboard(text) {
+  try {
+    // Try the modern Clipboard API first
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        console.log('Dimensions copied to clipboard:', text);
+      }).catch(err => {
+        console.log('Clipboard API failed, trying fallback method');
+        copyToClipboardFallback(text);
+      });
+    } else {
+      copyToClipboardFallback(text);
+    }
+  } catch (error) {
+    console.error('Failed to copy to clipboard:', error);
+    copyToClipboardFallback(text);
+  }
+}
+
+function copyToClipboardFallback(text) {
+  try {
+    // Create a temporary textarea element
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '-9999px';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    
+    // Select and copy
+    textarea.focus();
+    textarea.select();
+    document.execCommand('copy');
+    
+    // Clean up
+    document.body.removeChild(textarea);
+    console.log('Dimensions copied to clipboard (fallback):', text);
+  } catch (error) {
+    console.error('Fallback clipboard copy failed:', error);
+  }
+}
+
+function showClipboardNotification(text) {
+  // Remove any existing notification
+  const existing = document.getElementById('hihat-clipboard-notification');
+  if (existing) existing.remove();
+  
+  const notification = document.createElement('div');
+  notification.id = 'hihat-clipboard-notification';
+  notification.innerHTML = `📋 Copied: ${text}`;
+  notification.style.cssText = `
+    position: fixed !important;
+    top: 60px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    background: rgba(34, 197, 94, 0.95) !important;
+    color: white !important;
+    padding: 8px 16px !important;
+    border-radius: 6px !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    z-index: 2147483649 !important;
+    pointer-events: none !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  `;
+  
+  document.body.appendChild(notification);
+  
+  // Auto-hide after 2 seconds with fade out
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.style.transition = 'opacity 0.3s ease-out';
+      notification.style.opacity = '0';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.remove();
+        }
+      }, 300);
+    }
+  }, 2000);
+}
 
 console.log('Hi-hat Debug Tool - Content script loaded successfully');

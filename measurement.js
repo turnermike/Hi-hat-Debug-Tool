@@ -105,6 +105,9 @@ class MeasurementTool {
     
     // Add visual indicator
     this.showInstructions();
+    
+    // Test: Draw a simple test rectangle immediately to verify canvas works
+    this.testCanvasFill();
   }
   
   deactivate() {
@@ -154,6 +157,33 @@ class MeasurementTool {
     if (instructions) {
       instructions.remove();
     }
+  }
+  
+  testCanvasFill() {
+    console.log('Testing canvas fill capability');
+    if (!this.ctx) {
+      console.log('No canvas context available');
+      return;
+    }
+    
+    // Clear canvas first
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    // Test 1: Simple red rectangle in screen coordinates
+    this.ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+    this.ctx.fillRect(50, 50, 100, 100);
+    console.log('Drew test rectangle at 50,50 100x100');
+    
+    // Test 2: Blue rectangle with transparency
+    this.ctx.fillStyle = 'rgba(0, 0, 255, 0.5)';
+    this.ctx.fillRect(200, 50, 100, 100);
+    console.log('Drew blue test rectangle at 200,50 100x100');
+    
+    // Test 3: Green stroke rectangle
+    this.ctx.strokeStyle = 'green';
+    this.ctx.lineWidth = 3;
+    this.ctx.strokeRect(350, 50, 100, 100);
+    console.log('Drew green stroke rectangle at 350,50 100x100');
   }
   
   startMeasurement(e) {
@@ -244,14 +274,31 @@ class MeasurementTool {
     const right = Math.max(start.x, end.x);
     const bottom = Math.max(start.y, end.y);
     
-    // Set styles
-    this.ctx.strokeStyle = isActive ? '#3b82f6' : '#ef4444';
-    this.ctx.lineWidth = 1;
-    this.ctx.setLineDash([5, 5]);
-    this.ctx.globalAlpha = 0.8;
+    // Save canvas state
+    this.ctx.save();
     
-    // Draw rectangle
+    // Reset any previous settings
+    this.ctx.globalAlpha = 1.0;
+    this.ctx.setLineDash([]);
+    
+    // Draw background fill with more visible opacity
+    const fillColor = isActive ? 'rgba(59, 130, 246, 0.4)' : 'rgba(239, 68, 68, 0.4)';
+    this.ctx.fillStyle = fillColor;
+    console.log('Drawing fill with color:', fillColor, 'at', left, top, width, height);
+    this.ctx.fillRect(left, top, width, height);
+    
+    // Test: Also draw a small solid test rectangle to verify fill works
+    this.ctx.fillStyle = 'rgba(255, 0, 0, 0.8)'; // Bright red test
+    this.ctx.fillRect(left + 5, top + 5, 20, 20);
+    
+    // Draw dashed border
+    this.ctx.strokeStyle = isActive ? '#3b82f6' : '#ef4444';
+    this.ctx.lineWidth = 2;
+    this.ctx.setLineDash([5, 5]);
     this.ctx.strokeRect(left, top, width, height);
+    
+    // Restore state before drawing rulers
+    this.ctx.restore();
     
     // Draw rulers and measurements
     this.drawRulers(left, top, right, bottom, width, height, isActive);
