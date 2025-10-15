@@ -8,6 +8,17 @@ document.addEventListener('DOMContentLoaded', function() {
   const resetParamsBtn = document.getElementById('resetParamsBtn');
   const statusDiv = document.getElementById('status');
   
+  // Modal elements
+  const filenameModal = document.getElementById('filenameModal');
+  const closeModal = document.getElementById('closeModal');
+  const cancelScreenshot = document.getElementById('cancelScreenshot');
+  const filenameInput = document.getElementById('filenameInput');
+  const filenamePreview = document.getElementById('filenamePreview');
+  const saveScreenshot = document.getElementById('saveScreenshot');
+  
+  // Track which type of screenshot is being taken
+  let currentScreenshotType = 'viewport'; // 'viewport' or 'fullpage'
+  
   // Vulnerability scanner elements
   const scanResultsSection = document.getElementById('scanResultsSection');
   const scanResults = document.getElementById('scanResults');
@@ -113,6 +124,62 @@ document.addEventListener('DOMContentLoaded', function() {
       statusDiv.className = 'status-message status-hidden';
     }, 2000);
   }
+  
+  // Modal utility functions
+  function showModal(screenshotType = 'viewport') {
+    currentScreenshotType = screenshotType;
+    
+    // Generate default filename with appropriate prefix
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const prefix = screenshotType === 'fullpage' ? 'fullpage-' : 'viewport-';
+    const defaultFilename = `${prefix}${timestamp}`;
+    
+    filenameInput.value = defaultFilename;
+    updateFilenamePreview();
+    filenameModal.style.display = 'flex';
+    filenameInput.focus();
+    filenameInput.select();
+  }
+  
+  function hideModal() {
+    filenameModal.style.display = 'none';
+    filenameInput.value = '';
+  }
+  
+  function updateFilenamePreview() {
+    const filename = filenameInput.value.trim() || 'screenshot';
+    filenamePreview.textContent = `${filename}.png`;
+  }
+  
+  function sanitizeFilename(filename) {
+    // Remove or replace invalid characters for filenames
+    return filename.replace(/[<>:"/\\|?*]/g, '-').replace(/\s+/g, '_');
+  }
+  
+  // Modal event listeners
+  closeModal.addEventListener('click', hideModal);
+  cancelScreenshot.addEventListener('click', hideModal);
+  
+  // Update preview when typing
+  filenameInput.addEventListener('input', updateFilenamePreview);
+  
+  // Handle Enter key in filename input
+  filenameInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveScreenshot.click();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      hideModal();
+    }
+  });
+  
+  // Close modal when clicking outside
+  filenameModal.addEventListener('click', function(e) {
+    if (e.target === filenameModal) {
+      hideModal();
+    }
+  });
 
   addDebugBtn.addEventListener('click', async function() {
     try {
@@ -471,8 +538,20 @@ document.addEventListener('DOMContentLoaded', function() {
     scanResults.innerHTML = '';
   }
   
-  // Screenshot functionality
-  screenshotBtn.addEventListener('click', async function() {
+  // Screenshot functionality - show modal instead of taking screenshot directly
+  screenshotBtn.addEventListener('click', function() {
+    showModal('viewport');
+  });
+  
+  fullPageScreenshotBtn.addEventListener('click', function() {
+    showModal('fullpage');
+  });
+  
+  // Unified screenshot save function
+  saveScreenshot.addEventListener('click', async function() {
+    const filename = sanitizeFilename(filenameInput.value.trim() || 'screenshot');
+    hideModal();
+    
     try {
       // Get the current active tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -488,28 +567,86 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
       
-      showStatus('Taking screenshot...');
-      
-      // Capture visible tab (this captures the entire scrollable page)
-      const dataUrl = await chrome.tabs.captureVisibleTab(null, {
-        format: 'png',
-        quality: 100
-      });
-      
-      // Generate filename with timestamp and domain
-      const url = new URL(tab.url);
-      const domain = url.hostname.replace(/[^a-z0-9]/gi, '-');
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-      const filename = `screenshot-${domain}-${timestamp}.png`;
-      
-      // Download the screenshot
-      await chrome.downloads.download({
-        url: dataUrl,
-        filename: filename,
-        saveAs: false // Automatically save to Downloads folder
-      });
-      
-      showStatus('Screenshot saved to Downloads!');
+      if (currentScreenshotType === 'viewport') {
+        // Take viewport screenshot
+        showStatus('Taking screenshot...');
+        
+        const dataUrl = await chrome.tabs.captureVisibleTab(null, {
+          format: 'png',
+          quality: 100
+        });
+        
+        await chrome.downloads.download({
+          url: dataUrl,
+          filename: `${filename}.png`,
+          saveAs: false
+        });
+        
+        showStatus('Screenshot saved to Downloads!');
+      } else {
+        // Take full page screenshot
+        showStatus('Taking full page screenshot...');
+        
+        try {
+          // Send message to content script to prepare for full page capture
+          const response = await chrome.tabs.sendMessage(tab.id, { action: 'prepareFullPageScreenshot' });
+          
+          if (!response || !response.success) {
+            showStatus('Error: Could not prepare page for screenshot', true);
+            return;
+          }
+          
+          const { totalHeight, viewportHeight, scrollSteps } = response;
+          const screenshots = [];
+          
+          // Take screenshots for each scroll position
+          for (let i = 0; i < scrollSteps.length; i++) {
+            const scrollY = scrollSteps[i];
+            
+            // Scroll to position
+            await chrome.tabs.sendMessage(tab.id, { 
+              action: 'scrollToPosition', 
+              scrollY: scrollY 
+            });
+            
+            // Wait for scroll to complete
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            // Capture screenshot
+            const dataUrl = await chrome.tabs.captureVisibleTab(null, {
+              format: 'png',
+              quality: 100
+            });
+            
+            screenshots.push({
+              dataUrl,
+              scrollY,
+              isLast: i === scrollSteps.length - 1
+            });
+            
+            showStatus(`Capturing... ${i + 1}/${scrollSteps.length}`);
+          }
+          
+          // Restore original scroll position
+          await chrome.tabs.sendMessage(tab.id, { action: 'restoreScrollPosition' });
+          
+          // Stitch screenshots together
+          const stitchedDataUrl = await stitchScreenshots(screenshots, viewportHeight, totalHeight);
+          
+          // Download the screenshot with custom filename
+          await chrome.downloads.download({
+            url: stitchedDataUrl,
+            filename: `${filename}.png`,
+            saveAs: false
+          });
+          
+          showStatus('Full page screenshot saved!');
+          
+        } catch (messageError) {
+          showStatus('Error: Content script not responding. Try refreshing the page.', true);
+          return;
+        }
+      }
       
       // Close popup after successful action
       setTimeout(() => {
@@ -517,101 +654,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }, 1500);
       
     } catch (error) {
-      showStatus('Error: Could not take screenshot - ' + error.message, true);
-    }
-  });
-  
-  // Full page screenshot functionality
-  fullPageScreenshotBtn.addEventListener('click', async function() {
-    try {
-      // Get the current active tab
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
-      if (!tab || !tab.url) {
-        showStatus('Unable to get current tab', true);
-        return;
-      }
-      
-      // Check if it's a restricted page
-      if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
-        showStatus('Cannot screenshot this page', true);
-        return;
-      }
-      
-      showStatus('Taking full page screenshot...');
-      
-      try {
-        // Send message to content script to prepare for full page capture
-        const response = await chrome.tabs.sendMessage(tab.id, { action: 'prepareFullPageScreenshot' });
-        
-        if (!response || !response.success) {
-          showStatus('Error: Could not prepare page for screenshot', true);
-          return;
-        }
-        
-        const { totalHeight, viewportHeight, scrollSteps } = response;
-        const screenshots = [];
-        
-        // Take screenshots for each scroll position
-        for (let i = 0; i < scrollSteps.length; i++) {
-          const scrollY = scrollSteps[i];
-          
-          // Scroll to position
-          await chrome.tabs.sendMessage(tab.id, { 
-            action: 'scrollToPosition', 
-            scrollY: scrollY 
-          });
-          
-          // Wait for scroll to complete
-          await new Promise(resolve => setTimeout(resolve, 300));
-          
-          // Capture screenshot
-          const dataUrl = await chrome.tabs.captureVisibleTab(null, {
-            format: 'png',
-            quality: 100
-          });
-          
-          screenshots.push({
-            dataUrl,
-            scrollY,
-            isLast: i === scrollSteps.length - 1
-          });
-          
-          showStatus(`Capturing... ${i + 1}/${scrollSteps.length}`);
-        }
-        
-        // Restore original scroll position
-        await chrome.tabs.sendMessage(tab.id, { action: 'restoreScrollPosition' });
-        
-        // Stitch screenshots together
-        const stitchedDataUrl = await stitchScreenshots(screenshots, viewportHeight, totalHeight);
-        
-        // Generate filename with timestamp and domain
-        const url = new URL(tab.url);
-        const domain = url.hostname.replace(/[^a-z0-9]/gi, '-');
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-        const filename = `fullpage-screenshot-${domain}-${timestamp}.png`;
-        
-        // Download the screenshot
-        await chrome.downloads.download({
-          url: stitchedDataUrl,
-          filename: filename,
-          saveAs: false
-        });
-        
-        showStatus('Full page screenshot saved!');
-        
-        // Close popup after successful action
-        setTimeout(() => {
-          window.close();
-        }, 1500);
-        
-      } catch (messageError) {
-        showStatus('Error: Content script not responding. Try refreshing the page.', true);
-      }
-      
-    } catch (error) {
-      showStatus('Error: Could not take full page screenshot - ' + error.message, true);
+      showStatus(`Error: Could not take screenshot - ${error.message}`, true);
     }
   });
   

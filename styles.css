@@ -406,9 +406,15 @@ body {
 }
 
 .vulnerability-item.info {
-  background-color: #f8fafc;
-  border-left-color: #64748b;
-  color: #475569;
+  background-color: #fef7ff;
+  border-left-color: #f59e0b;
+  color: #d97706;
+}
+
+.vulnerability-item.pass {
+  background-color: #f0fdf4;
+  border-left-color: #22c55e;
+  color: #16a34a;
 }
 
 .vulnerability-title {
@@ -464,6 +470,171 @@ body {
   color: #64748b;
   text-align: center;
   margin-bottom: 8px;
+}
+
+/* Modal Overlay and Dialog */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  width: 90%;
+  max-width: 400px;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 150ms ease;
+}
+
+.modal-close:hover {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.filename-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.filename-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.filename-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.filename-preview {
+  margin-top: 8px;
+  padding: 6px 8px;
+  background-color: #f3f4f6;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  padding: 16px 20px;
+  border-top: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+}
+
+.modal-btn {
+  flex: 1;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 150ms ease;
+  font-family: inherit;
+}
+
+.modal-btn-cancel {
+  background-color: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.modal-btn-cancel:hover {
+  background-color: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.modal-btn-primary {
+  background-color: #2563eb;
+  color: white;
+}
+
+.modal-btn-primary:hover {
+  background-color: #1d4ed8;
+}
+
+.modal-btn-primary:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* Screenshot button colors */
+.screenshot-button {
+  border-color: #059669;
+}
+
+.screenshot-button:hover,
+.screenshot-button.active {
+  background-color: #059669;
+}
+
+.screenshot-button .wp-button-label {
+  color: #059669;
+}
+
+.fullpage-button {
+  border-color: #7c3aed;
+}
+
+.fullpage-button:hover,
+.fullpage-button.active {
+  background-color: #7c3aed;
+}
+
+.fullpage-button .wp-button-label {
+  color: #7c3aed;
 }
 
 /* Footer */
