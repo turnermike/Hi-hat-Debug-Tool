@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const clearFormsBtn = document.getElementById('clearFormsBtn');
   const measureBtn = document.getElementById('measureBtn');
   const scanBtn = document.getElementById('scanBtn');
+  const screenshotBtn = document.getElementById('screenshotBtn');
   const resetParamsBtn = document.getElementById('resetParamsBtn');
   const statusDiv = document.getElementById('status');
   
@@ -461,6 +462,56 @@ document.addEventListener('DOMContentLoaded', function() {
     scanResultsSection.style.display = 'none';
     scanResults.innerHTML = '';
   }
+  
+  // Screenshot functionality
+  screenshotBtn.addEventListener('click', async function() {
+    try {
+      // Get the current active tab
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      if (!tab || !tab.url) {
+        showStatus('Unable to get current tab', true);
+        return;
+      }
+      
+      // Check if it's a restricted page
+      if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
+        showStatus('Cannot screenshot this page', true);
+        return;
+      }
+      
+      showStatus('Taking screenshot...');
+      
+      // Capture visible tab (this captures the entire scrollable page)
+      const dataUrl = await chrome.tabs.captureVisibleTab(null, {
+        format: 'png',
+        quality: 100
+      });
+      
+      // Generate filename with timestamp and domain
+      const url = new URL(tab.url);
+      const domain = url.hostname.replace(/[^a-z0-9]/gi, '-');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+      const filename = `screenshot-${domain}-${timestamp}.png`;
+      
+      // Download the screenshot
+      await chrome.downloads.download({
+        url: dataUrl,
+        filename: filename,
+        saveAs: false // Automatically save to Downloads folder
+      });
+      
+      showStatus('Screenshot saved to Downloads!');
+      
+      // Close popup after successful action
+      setTimeout(() => {
+        window.close();
+      }, 1500);
+      
+    } catch (error) {
+      showStatus('Error: Could not take screenshot - ' + error.message, true);
+    }
+  });
   
   // Event listeners for vulnerability scanner
   scanBtn.addEventListener('click', performVulnerabilityScan);
