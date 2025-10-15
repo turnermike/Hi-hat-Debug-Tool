@@ -8,8 +8,6 @@ document.addEventListener('DOMContentLoaded', function() {
   const wordpressSection = document.getElementById('wordpressSection');
   const wpDebugBtn = document.getElementById('wpDebugBtn');
   const wpQueryBtn = document.getElementById('wpQueryBtn');
-  const wpTemplateBtn = document.getElementById('wpTemplateBtn');
-  const wpAdminBarBtn = document.getElementById('wpAdminBarBtn');
   const wpCacheBtn = document.getElementById('wpCacheBtn');
   const wpCustomizerBtn = document.getElementById('wpCustomizerBtn');
   
@@ -69,8 +67,6 @@ document.addEventListener('DOMContentLoaded', function() {
       updateButtonState(addDebugBtn, debugValue === '1' || debugValue === 'true');
       updateButtonState(wpDebugBtn, params.has('WP_DEBUG') || params.has('WPDEBUG') || params.has('wp_debug'));
       updateButtonState(wpQueryBtn, params.has('debug_queries') || params.has('query_debug'));
-      updateButtonState(wpTemplateBtn, params.has('template-debug') || params.has('template_debug'));
-      updateButtonState(wpAdminBarBtn, params.has('show-admin-bar') || params.has('admin_bar'));
       updateButtonState(wpCacheBtn, params.has('nocache') || params.has('no_cache') || params.has('cache_bust'));
       updateButtonState(wpCustomizerBtn, params.has('customize_theme') || params.has('customizer'));
       
@@ -307,48 +303,7 @@ document.addEventListener('DOMContentLoaded', function() {
     toggleUrlParameter('debug_queries', '1', 'Query debug');
   });
   
-  wpTemplateBtn.addEventListener('click', function() {
-    toggleUrlParameter('template-debug', '1', 'Template debug');
-  });
   
-  wpAdminBarBtn.addEventListener('click', async function() {
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
-      if (!tab || !tab.url) {
-        showStatus('Unable to get current tab URL', true);
-        return;
-      }
-      
-      const currentUrl = new URL(tab.url);
-      const hasAdminBar = currentUrl.searchParams.has('show-admin-bar');
-      
-      // Toggle admin bar visibility
-      if (hasAdminBar) {
-        currentUrl.searchParams.delete('show-admin-bar');
-        showStatus('Admin bar auto');
-      } else {
-        // Check if admin bar is currently hidden and show it, or hide if shown
-        const currentValue = currentUrl.searchParams.get('show-admin-bar');
-        if (currentValue === '0') {
-          currentUrl.searchParams.set('show-admin-bar', '1');
-          showStatus('Admin bar shown');
-        } else {
-          currentUrl.searchParams.set('show-admin-bar', '0');
-          showStatus('Admin bar hidden');
-        }
-      }
-      
-      await chrome.tabs.update(tab.id, { url: currentUrl.toString() });
-      
-      setTimeout(() => {
-        window.close();
-      }, 1000);
-      
-    } catch (error) {
-      showStatus('Error: ' + error.message, true);
-    }
-  });
   
   wpCacheBtn.addEventListener('click', async function() {
     try {
