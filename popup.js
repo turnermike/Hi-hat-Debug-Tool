@@ -37,6 +37,13 @@ document.addEventListener('DOMContentLoaded', function() {
   const wpSwitchEditorBtn = document.getElementById('wpSwitchEditorBtn');
   const wpSwitchOffBtn = document.getElementById('wpSwitchOffBtn');
   
+  // WordPress scan elements
+  const wpScanBtn = document.getElementById('wpScanBtn');
+  const wpScanResultsSection = document.getElementById('wpScanResultsSection');
+  const wpScanResults = document.getElementById('wpScanResults');
+  const rescanWpBtn = document.getElementById('rescanWpBtn');
+  const clearWpResultsBtn = document.getElementById('clearWpResultsBtn');
+  
   // WordPress detection and initialization
   async function initializeWordPress() {
     try {
@@ -538,6 +545,111 @@ document.addEventListener('DOMContentLoaded', function() {
     scanResults.innerHTML = '';
   }
   
+  // WordPress scan functionality
+  async function performWordPressScan() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      if (!tab || !tab.url) {
+        showStatus('Unable to get current tab', true);
+        return;
+      }
+      
+      // Check if it's a restricted page
+      if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
+        showStatus('Cannot scan this page', true);
+        return;
+      }
+      
+      showStatus('Scanning WordPress site...');
+      
+      // Send message to content script to perform WordPress scan
+      const response = await chrome.tabs.sendMessage(tab.id, { action: 'scanWordPress' });
+      
+      if (response && response.success) {
+        displayWordPressScanResults(response.scanData, response.summary);
+        showStatus(`WordPress scan complete: Found ${response.summary.pluginsCount} plugins`);
+      } else {
+        showStatus(response ? response.message : 'WordPress scan failed', true);
+      }
+      
+    } catch (error) {
+      showStatus('Error: Content script not responding. Try refreshing the page.', true);
+    }
+  }
+  
+  function displayWordPressScanResults(scanData, summary) {
+    // Show the results section
+    wpScanResultsSection.style.display = 'block';
+    
+    // Clear previous results
+    wpScanResults.innerHTML = '';
+    
+    // Add WordPress version and theme
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'wp-scan-header';
+    headerDiv.innerHTML = `
+      <div class="wp-scan-item">
+        <strong>WordPress Version:</strong> ${scanData.version || 'Unknown'}
+        ${scanData.security.versionInGenerator ? ' <span style="color: #f59e0b;">(⚠ Version exposed)</span>' : ''}
+      </div>
+      <div class="wp-scan-item">
+        <strong>Theme:</strong> ${scanData.theme.name || 'Unknown'}
+        ${scanData.theme.version ? ` (v${scanData.theme.version})` : ''}
+      </div>
+      <div class="wp-scan-item">
+        <strong>Security:</strong> ${scanData.security.usesHttps ? '🔒 HTTPS' : '⚠ HTTP only'}
+      </div>
+    `;
+    wpScanResults.appendChild(headerDiv);
+    
+    // Add plugins section
+    if (scanData.plugins.length > 0) {
+      const pluginsHeader = document.createElement('div');
+      pluginsHeader.className = 'wp-scan-section-title';
+      pluginsHeader.innerHTML = `<strong>Plugins (${scanData.plugins.length}):</strong>`;
+      wpScanResults.appendChild(pluginsHeader);
+      
+      const pluginsList = document.createElement('div');
+      pluginsList.className = 'wp-plugins-list';
+      
+      scanData.plugins.forEach(plugin => {
+        const pluginDiv = document.createElement('div');
+        pluginDiv.className = 'wp-plugin-item';
+        pluginDiv.innerHTML = `
+          <div class="plugin-name">${plugin.name}</div>
+          ${plugin.version ? `<div class="plugin-version">v${plugin.version}</div>` : ''}
+          <div class="plugin-type">${plugin.type}</div>
+        `;
+        pluginsList.appendChild(pluginDiv);
+      });
+      
+      wpScanResults.appendChild(pluginsList);
+    } else {
+      const noPlugins = document.createElement('div');
+      noPlugins.className = 'wp-scan-item';
+      noPlugins.innerHTML = '<strong>Plugins:</strong> None detected';
+      wpScanResults.appendChild(noPlugins);
+    }
+    
+    // Add WordPress URLs section
+    const urlsDiv = document.createElement('div');
+    urlsDiv.className = 'wp-urls-section';
+    urlsDiv.innerHTML = `
+      <div class="wp-scan-section-title"><strong>WordPress URLs:</strong></div>
+      <div class="wp-url-item">Admin: <a href="${scanData.adminUrl}" target="_blank">${scanData.adminUrl}</a></div>
+      <div class="wp-url-item">Login: <a href="${scanData.loginUrl}" target="_blank">${scanData.loginUrl}</a></div>
+      ${scanData.restApi ? `<div class="wp-url-item">REST API: <a href="${scanData.restApi}" target="_blank">${scanData.restApi}</a></div>` : ''}
+      ${scanData.feeds.length > 0 ? `<div class="wp-url-item">Feeds: ${scanData.feeds.length} found</div>` : ''}
+    `;
+    wpScanResults.appendChild(urlsDiv);
+  }
+  
+  function clearWordPressScanResults() {
+    wpScanResultsSection.style.display = 'none';
+    wpScanResults.innerHTML = '';
+  }
+  
   // Screenshot functionality - show modal instead of taking screenshot directly
   screenshotBtn.addEventListener('click', function() {
     showModal('viewport');
@@ -717,6 +829,16 @@ document.addEventListener('DOMContentLoaded', function() {
   clearResultsBtn.addEventListener('click', function() {
     clearScanResults();
     showStatus('Scan results cleared');
+  });
+  
+  // WordPress scan event listeners
+  wpScanBtn.addEventListener('click', performWordPressScan);
+  
+  rescanWpBtn.addEventListener('click', performWordPressScan);
+  
+  clearWpResultsBtn.addEventListener('click', function() {
+    clearWordPressScanResults();
+    showStatus('WordPress scan results cleared');
   });
   
   // Reset Query Parameters functionality

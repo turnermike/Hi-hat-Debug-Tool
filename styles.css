@@ -646,8 +646,110 @@ body {
 
 .footer-content {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  font-size: 12px;
+  align-items: center;
+  font-size: 10px;
   color: #9ca3af;
+}
+
+/* WordPress Scan Results Styling */
+.wp-scan-results-section {
+  margin-top: 20px;
+  margin-bottom: 16px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 16px;
+}
+
+.wp-scan-results {
+  margin-bottom: 16px;
+}
+
+.wp-scan-header {
+  margin-bottom: 16px;
+}
+
+.wp-scan-item {
+  padding: 8px 0;
+  font-size: 12px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.wp-scan-item:last-child {
+  border-bottom: none;
+}
+
+.wp-scan-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin: 12px 0 8px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.wp-plugins-list {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.wp-plugin-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  background-color: #f8fafc;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.plugin-name {
+  font-weight: 500;
+  color: #374151;
+  text-transform: capitalize;
+}
+
+.plugin-version {
+  font-size: 10px;
+  color: #6b7280;
+  background-color: #e0e7ff;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.plugin-type {
+  font-size: 10px;
+  color: #059669;
+  background-color: #d1fae5;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.wp-urls-section {
+  margin-top: 12px;
+}
+
+.wp-url-item {
+  padding: 4px 0;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.wp-url-item a {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.wp-url-item a:hover {
+  text-decoration: underline;
+}
+
+.wp-scan {
+  background-color: #eff6ff;
+}
+
+.wp-scan:hover {
+  background-color: #dbeafe;
 }

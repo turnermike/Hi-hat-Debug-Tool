@@ -34,6 +34,30 @@ let wpDebugInfo = {
   theme: null
 };
 
+// Enhanced WordPress scan data
+let wpScanData = {
+  version: null,
+  theme: {
+    name: null,
+    version: null,
+    path: null,
+    stylesheet: null
+  },
+  plugins: [],
+  adminUrl: null,
+  restApi: null,
+  loginUrl: null,
+  xmlrpc: null,
+  generator: null,
+  feeds: [],
+  security: {
+    directoryListing: false,
+    wpConfigVisible: false,
+    versionInGenerator: false,
+    usesHttps: false
+  }
+};
+
 function detectWordPress() {
   // Check for various WordPress indicators
   const indicators = [
@@ -110,6 +134,152 @@ if (document.readyState === 'loading') {
 
 // Also check again after a short delay in case content loads dynamically
 setTimeout(detectWordPress, 1000);
+
+// Comprehensive WordPress scanning function
+function performComprehensiveWPScan() {
+  // Reset scan data
+  wpScanData = {
+    version: null,
+    theme: {
+      name: null,
+      version: null,
+      path: null,
+      stylesheet: null
+    },
+    plugins: [],
+    adminUrl: null,
+    restApi: null,
+    loginUrl: null,
+    xmlrpc: null,
+    generator: null,
+    feeds: [],
+    security: {
+      directoryListing: false,
+      wpConfigVisible: false,
+      versionInGenerator: false,
+      usesHttps: window.location.protocol === 'https:'
+    }
+  };
+
+  // 1. Extract WordPress version
+  const generator = document.querySelector('meta[name="generator"][content*="WordPress"]');
+  if (generator) {
+    wpScanData.generator = generator.content;
+    const versionMatch = generator.content.match(/WordPress ([0-9.]+)/);
+    if (versionMatch) {
+      wpScanData.version = versionMatch[1];
+      wpScanData.security.versionInGenerator = true;
+    }
+  }
+
+  // 2. Extract theme information
+  // Look for theme in stylesheets
+  const stylesheets = document.querySelectorAll('link[rel="stylesheet"]');
+  stylesheets.forEach(link => {
+    const href = link.href;
+    if (href.includes('/wp-content/themes/')) {
+      const themeMatch = href.match(/\/wp-content\/themes\/([^\/]+)/);
+      if (themeMatch && !wpScanData.theme.name) {
+        wpScanData.theme.name = themeMatch[1];
+        wpScanData.theme.path = themeMatch[0];
+        
+        // Try to extract version from CSS file URL
+        const versionMatch = href.match(/[?&]ver=([^&]+)/);
+        if (versionMatch) {
+          wpScanData.theme.version = versionMatch[1];
+        }
+      }
+    }
+  });
+
+  // Look for theme in body class
+  if (document.body && !wpScanData.theme.name) {
+    const bodyClasses = document.body.className;
+    const themeMatch = bodyClasses.match(/theme-([\w-]+)/);
+    if (themeMatch) {
+      wpScanData.theme.name = themeMatch[1];
+    }
+  }
+
+  // 3. Extract plugin information
+  const allLinks = document.querySelectorAll('link, script');
+  const pluginSet = new Set();
+  
+  allLinks.forEach(element => {
+    const src = element.src || element.href;
+    if (src && src.includes('/wp-content/plugins/')) {
+      const pluginMatch = src.match(/\/wp-content\/plugins\/([^\/]+)/);
+      if (pluginMatch) {
+        const pluginName = pluginMatch[1];
+        if (!pluginSet.has(pluginName)) {
+          pluginSet.add(pluginName);
+          
+          // Try to extract version
+          const versionMatch = src.match(/[?&]ver=([^&]+)/);
+          wpScanData.plugins.push({
+            name: pluginName,
+            version: versionMatch ? versionMatch[1] : null,
+            type: element.tagName === 'SCRIPT' ? 'JavaScript' : 'CSS'
+          });
+        }
+      }
+    }
+  });
+
+  // Check for specific plugins in HTML content
+  const htmlContent = document.documentElement.outerHTML;
+  const commonPlugins = [
+    { name: 'yoast', pattern: /yoast|wpseo/i, displayName: 'Yoast SEO' },
+    { name: 'elementor', pattern: /elementor/i, displayName: 'Elementor' },
+    { name: 'woocommerce', pattern: /woocommerce|wc-/i, displayName: 'WooCommerce' },
+    { name: 'contact-form-7', pattern: /contact-form-7|wpcf7/i, displayName: 'Contact Form 7' },
+    { name: 'jetpack', pattern: /jetpack/i, displayName: 'Jetpack' },
+    { name: 'wordfence', pattern: /wordfence/i, displayName: 'Wordfence Security' },
+    { name: 'akismet', pattern: /akismet/i, displayName: 'Akismet' },
+    { name: 'rankmath', pattern: /rank-math/i, displayName: 'Rank Math' },
+    { name: 'wpml', pattern: /wpml/i, displayName: 'WPML' },
+    { name: 'gravity-forms', pattern: /gravity.*forms?|gform/i, displayName: 'Gravity Forms' }
+  ];
+
+  commonPlugins.forEach(plugin => {
+    if (plugin.pattern.test(htmlContent)) {
+      if (!wpScanData.plugins.some(p => p.name.includes(plugin.name))) {
+        wpScanData.plugins.push({
+          name: plugin.displayName,
+          version: null,
+          type: 'Detected',
+          detected: true
+        });
+      }
+    }
+  });
+
+  // 4. Find WordPress URLs
+  const baseUrl = window.location.origin;
+  wpScanData.adminUrl = baseUrl + '/wp-admin/';
+  wpScanData.loginUrl = baseUrl + '/wp-login.php';
+  wpScanData.xmlrpc = baseUrl + '/xmlrpc.php';
+
+  // Look for REST API
+  const restApiLink = document.querySelector('link[rel="https://api.w.org/"]');
+  if (restApiLink) {
+    wpScanData.restApi = restApiLink.href;
+  } else {
+    wpScanData.restApi = baseUrl + '/wp-json/wp/v2/';
+  }
+
+  // 5. Find RSS/Atom feeds
+  const feeds = document.querySelectorAll('link[type*="rss"], link[type*="atom"]');
+  feeds.forEach(feed => {
+    wpScanData.feeds.push({
+      type: feed.type,
+      title: feed.title || 'Feed',
+      url: feed.href
+    });
+  });
+
+  return wpScanData;
+}
 
 // Form clearing functionality
 function clearAllForms() {
@@ -937,6 +1107,42 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         success: false, 
         message: 'WordPress detection error: ' + error.message,
         isWordPress: false
+      });
+    }
+    return true;
+  }
+  
+  if (request.action === 'scanWordPress') {
+    try {
+      // First check if it's a WordPress site
+      detectWordPress();
+      
+      if (!isWordPressSite) {
+        sendResponse({
+          success: false,
+          message: 'This does not appear to be a WordPress site'
+        });
+        return true;
+      }
+      
+      // Perform comprehensive scan
+      const scanResults = performComprehensiveWPScan();
+      
+      sendResponse({
+        success: true,
+        scanData: scanResults,
+        summary: {
+          version: scanResults.version,
+          theme: scanResults.theme.name,
+          pluginsCount: scanResults.plugins.length,
+          hasRestApi: !!scanResults.restApi,
+          isSecure: scanResults.security.usesHttps
+        }
+      });
+    } catch (error) {
+      sendResponse({
+        success: false,
+        message: 'WordPress scan error: ' + error.message
       });
     }
     return true;
