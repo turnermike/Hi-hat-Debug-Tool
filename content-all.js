@@ -501,49 +501,107 @@ window.addEventListener('resize', () => {
 
 // Vulnerability scanning functionality
 function scanForVulnerabilities() {
-  const vulnerabilities = [];
+  const results = [];
   
-  // 1. Check for missing HTTPS
-  if (window.location.protocol !== 'https:' && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
-    vulnerabilities.push({
+  // 1. Check for HTTPS
+  if (window.location.protocol === 'https:') {
+    results.push({
+      type: 'https-check',
+      severity: 'pass',
+      title: '✓ HTTPS Enabled',
+      description: 'Site is using secure HTTPS encryption'
+    });
+  } else if (window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')) {
+    results.push({
+      type: 'https-check',
+      severity: 'info',
+      title: 'ℹ Local Development',
+      description: 'HTTPS not required for local development'
+    });
+  } else {
+    results.push({
       type: 'insecure-connection',
       severity: 'medium',
-      title: 'Insecure Connection',
+      title: '⚠ Insecure Connection',
       description: 'Site is not using HTTPS encryption'
     });
   }
   
-  // 2. Check for forms without CSRF protection
+  
+  // 2. Check for CSRF protection on forms
   const forms = document.querySelectorAll('form[method="post"], form:not([method])');
+  let formsWithoutCSRF = 0;
+  let totalForms = forms.length;
+  
   forms.forEach((form, index) => {
     const hasCSRFToken = form.querySelector('input[name*="csrf"], input[name*="token"], input[name*="nonce"]');
     if (!hasCSRFToken) {
-      vulnerabilities.push({
-        type: 'csrf-missing',
-        severity: 'high',
-        title: 'Missing CSRF Protection',
-        description: `Form ${index + 1} lacks CSRF token protection`
-      });
+      formsWithoutCSRF++;
     }
   });
   
-  // 3. Check for password fields without autocomplete="off"
+  if (totalForms === 0) {
+    results.push({
+      type: 'csrf-check',
+      severity: 'info',
+      title: 'ℹ No Forms Found',
+      description: 'No POST forms detected on this page'
+    });
+  } else if (formsWithoutCSRF === 0) {
+    results.push({
+      type: 'csrf-check',
+      severity: 'pass',
+      title: `✓ CSRF Protection (${totalForms} forms)`,
+      description: 'All forms have CSRF token protection'
+    });
+  } else {
+    results.push({
+      type: 'csrf-missing',
+      severity: 'high',
+      title: `⚠ Missing CSRF Protection`,
+      description: `${formsWithoutCSRF} of ${totalForms} forms lack CSRF tokens`
+    });
+  }
+  
+  // 3. Check for password field autocomplete settings
   const passwordFields = document.querySelectorAll('input[type="password"]');
+  let unsafePasswordFields = 0;
+  const totalPasswordFields = passwordFields.length;
+  
   passwordFields.forEach((field, index) => {
     if (field.autocomplete !== 'off' && field.autocomplete !== 'new-password' && field.autocomplete !== 'current-password') {
-      vulnerabilities.push({
-        type: 'password-autocomplete',
-        severity: 'low',
-        title: 'Password Autocomplete',
-        description: `Password field ${index + 1} allows autocomplete`
-      });
+      unsafePasswordFields++;
     }
   });
   
-  // 4. Check for potential XSS in URL parameters
+  if (totalPasswordFields === 0) {
+    results.push({
+      type: 'password-check',
+      severity: 'info',
+      title: 'ℹ No Password Fields',
+      description: 'No password fields detected on this page'
+    });
+  } else if (unsafePasswordFields === 0) {
+    results.push({
+      type: 'password-check',
+      severity: 'pass',
+      title: `✓ Password Security (${totalPasswordFields} fields)`,
+      description: 'All password fields have appropriate autocomplete settings'
+    });
+  } else {
+    results.push({
+      type: 'password-autocomplete',
+      severity: 'low',
+      title: `⚠ Password Autocomplete Risk`,
+      description: `${unsafePasswordFields} of ${totalPasswordFields} password fields allow autocomplete`
+    });
+  }
+  
+  // 4. Check for XSS patterns in URL parameters
   const urlParams = new URLSearchParams(window.location.search);
   const suspiciousParams = [];
   const xssPatterns = [/<script/i, /javascript:/i, /on\w+=/i, /<iframe/i, /<object/i];
+  const totalParams = Array.from(urlParams.keys()).length;
   
   urlParams.forEach((value, key) => {
     xssPatterns.forEach(pattern => {
@@ -553,27 +611,56 @@ function scanForVulnerabilities() {
     });
   });
   
-  if (suspiciousParams.length > 0) {
-    vulnerabilities.push({
+  if (totalParams === 0) {
+    results.push({
+      type: 'xss-check',
+      severity: 'info',
+      title: 'ℹ No URL Parameters',
+      description: 'No URL parameters to check for XSS patterns'
+    });
+  } else if (suspiciousParams.length === 0) {
+    results.push({
+      type: 'xss-check',
+      severity: 'pass',
+      title: `✓ URL Parameter Safety (${totalParams} params)`,
+      description: 'No suspicious XSS patterns found in URL parameters'
+    });
+  } else {
+    results.push({
       type: 'xss-url-params',
       severity: 'critical',
-      title: 'Potential XSS in URL',
+      title: '⚠ Potential XSS in URL',
       description: `Suspicious content in URL parameters: ${suspiciousParams.join(', ')}`
     });
   }
   
-  // 5. Check for inline JavaScript
+  
+  // 5. Check for inline JavaScript (CSP risk)
   const inlineScripts = document.querySelectorAll('script:not([src])');
-  if (inlineScripts.length > 3) {
-    vulnerabilities.push({
+  if (inlineScripts.length === 0) {
+    results.push({
+      type: 'inline-scripts-check',
+      severity: 'pass',
+      title: '✓ No Inline Scripts',
+      description: 'No inline JavaScript detected (CSP friendly)'
+    });
+  } else if (inlineScripts.length <= 3) {
+    results.push({
+      type: 'inline-scripts-check',
+      severity: 'info',
+      title: `ℹ Minimal Inline Scripts (${inlineScripts.length})`,
+      description: 'Small number of inline scripts detected'
+    });
+  } else {
+    results.push({
       type: 'inline-scripts',
       severity: 'medium',
-      title: 'Multiple Inline Scripts',
-      description: `Found ${inlineScripts.length} inline script tags (CSP risk)`
+      title: `⚠ Multiple Inline Scripts (${inlineScripts.length})`,
+      description: 'High number of inline script tags poses CSP risk'
     });
   }
   
-  // 6. Check for missing security headers (based on response analysis)
+  // 6. Check for security headers (meta tag detection)
   const metaTags = document.querySelectorAll('meta[http-equiv]');
   const securityHeaders = {
     csp: false,
@@ -588,14 +675,22 @@ function scanForVulnerabilities() {
     if (equiv === 'x-xss-protection') securityHeaders.xss = true;
   });
   
-  if (!securityHeaders.csp) {
-    vulnerabilities.push({
+  if (securityHeaders.csp) {
+    results.push({
+      type: 'csp-check',
+      severity: 'pass',
+      title: '✓ CSP Header Present',
+      description: 'Content Security Policy detected via meta tag'
+    });
+  } else {
+    results.push({
       type: 'missing-csp',
       severity: 'medium',
-      title: 'Missing CSP Header',
-      description: 'Content Security Policy not detected'
+      title: '⚠ Missing CSP Header',
+      description: 'Content Security Policy not detected (may be set via HTTP headers)'
     });
   }
+  
   
   // 7. Check for exposed sensitive information
   const bodyText = document.body.textContent.toLowerCase();
@@ -606,29 +701,48 @@ function scanForVulnerabilities() {
     { pattern: /token\s*[:=]\s*["'][^"']{10,}/i, name: 'Access Tokens' }
   ];
   
+  const exposedData = [];
   sensitivePatterns.forEach(({ pattern, name }) => {
     if (pattern.test(bodyText)) {
-      vulnerabilities.push({
-        type: 'exposed-sensitive',
-        severity: 'critical',
-        title: 'Exposed Sensitive Data',
-        description: `Potential ${name} found in page content`
-      });
+      exposedData.push(name);
     }
   });
   
+  if (exposedData.length === 0) {
+    results.push({
+      type: 'sensitive-data-check',
+      severity: 'pass',
+      title: '✓ No Exposed Sensitive Data',
+      description: 'No obvious sensitive information found in page content'
+    });
+  } else {
+    results.push({
+      type: 'exposed-sensitive',
+      severity: 'critical',
+      title: `⚠ Exposed Sensitive Data`,
+      description: `Potential sensitive data found: ${exposedData.join(', ')}`
+    });
+  }
+  
   // 8. Check for clickjacking protection
   const frameOptions = document.querySelector('meta[http-equiv="x-frame-options"]');
-  if (!frameOptions && window.parent === window) {
-    vulnerabilities.push({
+  if (frameOptions || window.parent !== window) {
+    results.push({
+      type: 'clickjacking-check',
+      severity: 'pass',
+      title: '✓ Clickjacking Protection',
+      description: 'X-Frame-Options detected or page is in frame'
+    });
+  } else {
+    results.push({
       type: 'clickjacking',
       severity: 'medium',
-      title: 'Clickjacking Risk',
+      title: '⚠ Clickjacking Risk',
       description: 'Page lacks X-Frame-Options protection'
     });
   }
   
-  // 9. Check for mixed content (HTTP resources on HTTPS page)
+  // 9. Check for mixed content (only relevant for HTTPS pages)
   if (window.location.protocol === 'https:') {
     const httpResources = [];
     const images = document.querySelectorAll('img[src^="http:"]');
@@ -639,23 +753,29 @@ function scanForVulnerabilities() {
     if (scripts.length > 0) httpResources.push(`${scripts.length} scripts`);
     if (links.length > 0) httpResources.push(`${links.length} stylesheets`);
     
-    if (httpResources.length > 0) {
-      vulnerabilities.push({
+    if (httpResources.length === 0) {
+      results.push({
+        type: 'mixed-content-check',
+        severity: 'pass',
+        title: '✓ No Mixed Content',
+        description: 'All resources loaded over HTTPS'
+      });
+    } else {
+      results.push({
         type: 'mixed-content',
         severity: 'high',
-        title: 'Mixed Content',
+        title: '⚠ Mixed Content Detected',
         description: `HTTP resources on HTTPS page: ${httpResources.join(', ')}`
       });
     }
   }
   
-  // 10. Check for outdated libraries (basic check)
+  // 10. Check for potentially outdated libraries
   const scripts = document.querySelectorAll('script[src]');
   const outdatedLibraries = [];
   
   scripts.forEach(script => {
     const src = script.src;
-    // Check for common outdated library patterns
     if (src.includes('jquery') && (src.includes('1.') || src.includes('2.'))) {
       outdatedLibraries.push('jQuery (potentially outdated)');
     }
@@ -664,16 +784,81 @@ function scanForVulnerabilities() {
     }
   });
   
-  if (outdatedLibraries.length > 0) {
-    vulnerabilities.push({
+  if (outdatedLibraries.length === 0) {
+    results.push({
+      type: 'library-check',
+      severity: 'pass',
+      title: '✓ No Obviously Outdated Libraries',
+      description: 'No clearly outdated JavaScript libraries detected'
+    });
+  } else {
+    results.push({
       type: 'outdated-libraries',
       severity: 'medium',
-      title: 'Outdated Libraries',
-      description: `Potentially outdated: ${outdatedLibraries.join(', ')}`
+      title: '⚠ Potentially Outdated Libraries',
+      description: `Found: ${outdatedLibraries.join(', ')}`
     });
   }
   
-  return vulnerabilities;
+  return results;
+}
+
+// Full page screenshot functionality
+let originalScrollPosition = 0;
+
+function prepareFullPageScreenshot() {
+  // Store original scroll position
+  originalScrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+  
+  // Get page dimensions
+  const totalHeight = Math.max(
+    document.body.scrollHeight,
+    document.body.offsetHeight,
+    document.documentElement.clientHeight,
+    document.documentElement.scrollHeight,
+    document.documentElement.offsetHeight
+  );
+  
+  const viewportHeight = window.innerHeight;
+  const scrollSteps = [];
+  
+  // Calculate scroll positions needed to capture the entire page
+  for (let y = 0; y < totalHeight; y += viewportHeight) {
+    scrollSteps.push(y);
+  }
+  
+  // Ensure we don't have unnecessary final step if the last step covers the remaining height
+  const lastStep = scrollSteps[scrollSteps.length - 1];
+  if (lastStep + viewportHeight >= totalHeight && scrollSteps.length > 1) {
+    scrollSteps[scrollSteps.length - 1] = Math.max(0, totalHeight - viewportHeight);
+  }
+  
+  return {
+    success: true,
+    totalHeight,
+    viewportHeight,
+    scrollSteps
+  };
+}
+
+function scrollToPosition(scrollY) {
+  window.scrollTo({
+    top: scrollY,
+    left: 0,
+    behavior: 'auto' // Use auto for immediate scroll without animation
+  });
+  
+  return { success: true };
+}
+
+function restoreScrollPosition() {
+  window.scrollTo({
+    top: originalScrollPosition,
+    left: 0,
+    behavior: 'smooth'
+  });
+  
+  return { success: true };
 }
 
 // Listen for messages from the popup
@@ -681,16 +866,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   
   if (request.action === 'scanVulnerabilities') {
     try {
-      const vulnerabilities = scanForVulnerabilities();
+      const results = scanForVulnerabilities();
+      const vulnerabilities = results.filter(r => ['critical', 'high', 'medium', 'low'].includes(r.severity));
       sendResponse({ 
         success: true,
-        vulnerabilities: vulnerabilities,
+        vulnerabilities: results, // Send all results including passes
         summary: {
-          total: vulnerabilities.length,
-          critical: vulnerabilities.filter(v => v.severity === 'critical').length,
-          high: vulnerabilities.filter(v => v.severity === 'high').length,
-          medium: vulnerabilities.filter(v => v.severity === 'medium').length,
-          low: vulnerabilities.filter(v => v.severity === 'low').length
+          total: results.length,
+          issues: vulnerabilities.length,
+          passed: results.filter(r => r.severity === 'pass').length,
+          critical: results.filter(r => r.severity === 'critical').length,
+          high: results.filter(r => r.severity === 'high').length,
+          medium: results.filter(r => r.severity === 'medium').length,
+          low: results.filter(r => r.severity === 'low').length,
+          info: results.filter(r => r.severity === 'info').length
         }
       });
     } catch (error) {
@@ -749,6 +938,36 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         message: 'WordPress detection error: ' + error.message,
         isWordPress: false
       });
+    }
+    return true;
+  }
+  
+  if (request.action === 'prepareFullPageScreenshot') {
+    try {
+      const result = prepareFullPageScreenshot();
+      sendResponse(result);
+    } catch (error) {
+      sendResponse({ success: false, message: 'Error preparing screenshot: ' + error.message });
+    }
+    return true;
+  }
+  
+  if (request.action === 'scrollToPosition') {
+    try {
+      const result = scrollToPosition(request.scrollY);
+      sendResponse(result);
+    } catch (error) {
+      sendResponse({ success: false, message: 'Error scrolling: ' + error.message });
+    }
+    return true;
+  }
+  
+  if (request.action === 'restoreScrollPosition') {
+    try {
+      const result = restoreScrollPosition();
+      sendResponse(result);
+    } catch (error) {
+      sendResponse({ success: false, message: 'Error restoring scroll: ' + error.message });
     }
     return true;
   }

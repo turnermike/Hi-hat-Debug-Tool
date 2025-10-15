@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const measureBtn = document.getElementById('measureBtn');
   const scanBtn = document.getElementById('scanBtn');
   const screenshotBtn = document.getElementById('screenshotBtn');
+  const fullPageScreenshotBtn = document.getElementById('fullPageScreenshotBtn');
   const resetParamsBtn = document.getElementById('resetParamsBtn');
   const statusDiv = document.getElementById('status');
   
@@ -411,7 +412,7 @@ document.addEventListener('DOMContentLoaded', function() {
       
       if (response && response.success) {
         displayScanResults(response.vulnerabilities, response.summary);
-        showStatus(`Scan complete: ${response.summary.total} issues found`);
+        showStatus(`Scan complete: ${response.summary.issues} issues, ${response.summary.passed} passed`);
       } else {
         showStatus(response ? response.message : 'Scan failed', true);
       }
@@ -421,7 +422,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
   
-  function displayScanResults(vulnerabilities, summary) {
+  function displayScanResults(results, summary) {
     // Show the results section
     scanResultsSection.style.display = 'block';
     
@@ -431,31 +432,38 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add summary
     const summaryDiv = document.createElement('div');
     summaryDiv.className = 'scan-summary';
-    summaryDiv.textContent = `Found ${summary.total} issue${summary.total !== 1 ? 's' : ''}`;
-    if (summary.critical > 0) summaryDiv.textContent += ` (${summary.critical} critical)`;
-    if (summary.high > 0) summaryDiv.textContent += ` (${summary.high} high)`;
+    summaryDiv.innerHTML = `
+      <strong>Security Scan Results:</strong> ${summary.total} checks completed<br>
+      <span style="color: #22c55e;">✓ ${summary.passed} passed</span> • 
+      <span style="color: #f59e0b;">ℹ ${summary.info} info</span>
+      ${summary.issues > 0 ? ` • <span style="color: #ef4444;">⚠ ${summary.issues} issues</span>` : ''}
+    `;
     scanResults.appendChild(summaryDiv);
     
-    // Add vulnerabilities
-    if (vulnerabilities.length === 0) {
-      const noIssuesDiv = document.createElement('div');
-      noIssuesDiv.className = 'vulnerability-item info';
-      noIssuesDiv.innerHTML = `
-        <div class="vulnerability-title">✓ No Issues Found</div>
-        <div class="vulnerability-description">This page appears to follow basic security practices.</div>
-      `;
-      scanResults.appendChild(noIssuesDiv);
-    } else {
-      vulnerabilities.forEach(vuln => {
-        const vulnDiv = document.createElement('div');
-        vulnDiv.className = `vulnerability-item ${vuln.severity}`;
-        vulnDiv.innerHTML = `
-          <div class="vulnerability-title">${vuln.title}</div>
-          <div class="vulnerability-description">${vuln.description}</div>
+    // Group results by severity for better organization
+    const severityOrder = ['pass', 'info', 'low', 'medium', 'high', 'critical'];
+    const groupedResults = {};
+    
+    // Initialize groups
+    severityOrder.forEach(severity => {
+      groupedResults[severity] = results.filter(r => r.severity === severity);
+    });
+    
+    // Display results in order
+    severityOrder.forEach(severity => {
+      const items = groupedResults[severity];
+      if (items.length === 0) return;
+      
+      items.forEach(result => {
+        const resultDiv = document.createElement('div');
+        resultDiv.className = `vulnerability-item ${result.severity}`;
+        resultDiv.innerHTML = `
+          <div class="vulnerability-title">${result.title}</div>
+          <div class="vulnerability-description">${result.description}</div>
         `;
-        scanResults.appendChild(vulnDiv);
+        scanResults.appendChild(resultDiv);
       });
-    }
+    });
   }
   
   function clearScanResults() {
@@ -512,6 +520,151 @@ document.addEventListener('DOMContentLoaded', function() {
       showStatus('Error: Could not take screenshot - ' + error.message, true);
     }
   });
+  
+  // Full page screenshot functionality
+  fullPageScreenshotBtn.addEventListener('click', async function() {
+    try {
+      // Get the current active tab
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      if (!tab || !tab.url) {
+        showStatus('Unable to get current tab', true);
+        return;
+      }
+      
+      // Check if it's a restricted page
+      if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
+        showStatus('Cannot screenshot this page', true);
+        return;
+      }
+      
+      showStatus('Taking full page screenshot...');
+      
+      try {
+        // Send message to content script to prepare for full page capture
+        const response = await chrome.tabs.sendMessage(tab.id, { action: 'prepareFullPageScreenshot' });
+        
+        if (!response || !response.success) {
+          showStatus('Error: Could not prepare page for screenshot', true);
+          return;
+        }
+        
+        const { totalHeight, viewportHeight, scrollSteps } = response;
+        const screenshots = [];
+        
+        // Take screenshots for each scroll position
+        for (let i = 0; i < scrollSteps.length; i++) {
+          const scrollY = scrollSteps[i];
+          
+          // Scroll to position
+          await chrome.tabs.sendMessage(tab.id, { 
+            action: 'scrollToPosition', 
+            scrollY: scrollY 
+          });
+          
+          // Wait for scroll to complete
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+          // Capture screenshot
+          const dataUrl = await chrome.tabs.captureVisibleTab(null, {
+            format: 'png',
+            quality: 100
+          });
+          
+          screenshots.push({
+            dataUrl,
+            scrollY,
+            isLast: i === scrollSteps.length - 1
+          });
+          
+          showStatus(`Capturing... ${i + 1}/${scrollSteps.length}`);
+        }
+        
+        // Restore original scroll position
+        await chrome.tabs.sendMessage(tab.id, { action: 'restoreScrollPosition' });
+        
+        // Stitch screenshots together
+        const stitchedDataUrl = await stitchScreenshots(screenshots, viewportHeight, totalHeight);
+        
+        // Generate filename with timestamp and domain
+        const url = new URL(tab.url);
+        const domain = url.hostname.replace(/[^a-z0-9]/gi, '-');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const filename = `fullpage-screenshot-${domain}-${timestamp}.png`;
+        
+        // Download the screenshot
+        await chrome.downloads.download({
+          url: stitchedDataUrl,
+          filename: filename,
+          saveAs: false
+        });
+        
+        showStatus('Full page screenshot saved!');
+        
+        // Close popup after successful action
+        setTimeout(() => {
+          window.close();
+        }, 1500);
+        
+      } catch (messageError) {
+        showStatus('Error: Content script not responding. Try refreshing the page.', true);
+      }
+      
+    } catch (error) {
+      showStatus('Error: Could not take full page screenshot - ' + error.message, true);
+    }
+  });
+  
+  // Function to stitch multiple screenshots together
+  async function stitchScreenshots(screenshots, viewportHeight, totalHeight) {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Set canvas dimensions
+      canvas.width = screenshots[0] ? 1920 : 1920; // Default width, will be adjusted
+      canvas.height = totalHeight;
+      
+      let loadedCount = 0;
+      const images = [];
+      
+      // Load all images
+      screenshots.forEach((screenshot, index) => {
+        const img = new Image();
+        img.onload = () => {
+          images[index] = img;
+          loadedCount++;
+          
+          // Set canvas width based on first image
+          if (index === 0) {
+            canvas.width = img.width;
+          }
+          
+          // When all images are loaded, draw them
+          if (loadedCount === screenshots.length) {
+            // Draw screenshots with proper positioning
+            screenshots.forEach((screenshot, i) => {
+              const img = images[i];
+              const y = screenshot.scrollY;
+              
+              // Handle potential overlap for last screenshot
+              if (screenshot.isLast && totalHeight < y + viewportHeight) {
+                const cropHeight = totalHeight - y;
+                ctx.drawImage(img, 0, 0, img.width, cropHeight, 0, y, img.width, cropHeight);
+              } else {
+                ctx.drawImage(img, 0, y);
+              }
+            });
+            
+            // Convert to data URL
+            const dataUrl = canvas.toDataURL('image/png', 1.0);
+            resolve(dataUrl);
+          }
+        };
+        img.src = screenshot.dataUrl;
+      });
+    });
+  }
   
   // Event listeners for vulnerability scanner
   scanBtn.addEventListener('click', performVulnerabilityScan);
