@@ -2,14 +2,21 @@ document.addEventListener('DOMContentLoaded', function() {
   const addDebugBtn = document.getElementById('addDebugBtn');
   const clearFormsBtn = document.getElementById('clearFormsBtn');
   const measureBtn = document.getElementById('measureBtn');
+  const scanBtn = document.getElementById('scanBtn');
+  const resetParamsBtn = document.getElementById('resetParamsBtn');
   const statusDiv = document.getElementById('status');
+  
+  // Vulnerability scanner elements
+  const scanResultsSection = document.getElementById('scanResultsSection');
+  const scanResults = document.getElementById('scanResults');
+  const rescanBtn = document.getElementById('rescanBtn');
+  const clearResultsBtn = document.getElementById('clearResultsBtn');
   
   // WordPress elements
   const wordpressSection = document.getElementById('wordpressSection');
   const wpDebugBtn = document.getElementById('wpDebugBtn');
   const wpQueryBtn = document.getElementById('wpQueryBtn');
   const wpCacheBtn = document.getElementById('wpCacheBtn');
-  const wpCustomizerBtn = document.getElementById('wpCustomizerBtn');
   
   // User switching elements
   const userSwitchingRow = document.getElementById('userSwitchingRow');
@@ -68,7 +75,6 @@ document.addEventListener('DOMContentLoaded', function() {
       updateButtonState(wpDebugBtn, params.has('WP_DEBUG') || params.has('WPDEBUG') || params.has('wp_debug'));
       updateButtonState(wpQueryBtn, params.has('debug_queries') || params.has('query_debug'));
       updateButtonState(wpCacheBtn, params.has('nocache') || params.has('no_cache') || params.has('cache_bust'));
-      updateButtonState(wpCustomizerBtn, params.has('customize_theme') || params.has('customizer'));
       
       // Update user switching button states
       if (wpSwitchAdminBtn) {
@@ -342,9 +348,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
   
-  wpCustomizerBtn.addEventListener('click', function() {
-    toggleUrlParameter('customize_theme', '1', 'Customizer preview');
-  });
   
   // User switching functionality (simulates user roles for testing)
   wpSwitchAdminBtn.addEventListener('click', function() {
@@ -375,6 +378,166 @@ document.addEventListener('DOMContentLoaded', function() {
       
       await chrome.tabs.update(tab.id, { url: currentUrl.toString() });
       
+      setTimeout(() => {
+        window.close();
+      }, 1000);
+      
+    } catch (error) {
+      showStatus('Error: ' + error.message, true);
+    }
+  });
+  
+  // Vulnerability scanner functionality
+  async function performVulnerabilityScan() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      if (!tab || !tab.url) {
+        showStatus('Unable to get current tab', true);
+        return;
+      }
+      
+      // Check if it's a restricted page
+      if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
+        showStatus('Cannot scan this page', true);
+        return;
+      }
+      
+      showStatus('Scanning for vulnerabilities...');
+      
+      // Send message to content script to perform scan
+      const response = await chrome.tabs.sendMessage(tab.id, { action: 'scanVulnerabilities' });
+      
+      if (response && response.success) {
+        displayScanResults(response.vulnerabilities, response.summary);
+        showStatus(`Scan complete: ${response.summary.total} issues found`);
+      } else {
+        showStatus(response ? response.message : 'Scan failed', true);
+      }
+      
+    } catch (error) {
+      showStatus('Error: Content script not responding. Try refreshing the page.', true);
+    }
+  }
+  
+  function displayScanResults(vulnerabilities, summary) {
+    // Show the results section
+    scanResultsSection.style.display = 'block';
+    
+    // Clear previous results
+    scanResults.innerHTML = '';
+    
+    // Add summary
+    const summaryDiv = document.createElement('div');
+    summaryDiv.className = 'scan-summary';
+    summaryDiv.textContent = `Found ${summary.total} issue${summary.total !== 1 ? 's' : ''}`;
+    if (summary.critical > 0) summaryDiv.textContent += ` (${summary.critical} critical)`;
+    if (summary.high > 0) summaryDiv.textContent += ` (${summary.high} high)`;
+    scanResults.appendChild(summaryDiv);
+    
+    // Add vulnerabilities
+    if (vulnerabilities.length === 0) {
+      const noIssuesDiv = document.createElement('div');
+      noIssuesDiv.className = 'vulnerability-item info';
+      noIssuesDiv.innerHTML = `
+        <div class="vulnerability-title">✓ No Issues Found</div>
+        <div class="vulnerability-description">This page appears to follow basic security practices.</div>
+      `;
+      scanResults.appendChild(noIssuesDiv);
+    } else {
+      vulnerabilities.forEach(vuln => {
+        const vulnDiv = document.createElement('div');
+        vulnDiv.className = `vulnerability-item ${vuln.severity}`;
+        vulnDiv.innerHTML = `
+          <div class="vulnerability-title">${vuln.title}</div>
+          <div class="vulnerability-description">${vuln.description}</div>
+        `;
+        scanResults.appendChild(vulnDiv);
+      });
+    }
+  }
+  
+  function clearScanResults() {
+    scanResultsSection.style.display = 'none';
+    scanResults.innerHTML = '';
+  }
+  
+  // Event listeners for vulnerability scanner
+  scanBtn.addEventListener('click', performVulnerabilityScan);
+  
+  rescanBtn.addEventListener('click', performVulnerabilityScan);
+  
+  clearResultsBtn.addEventListener('click', function() {
+    clearScanResults();
+    showStatus('Scan results cleared');
+  });
+  
+  // Reset Query Parameters functionality
+  resetParamsBtn.addEventListener('click', async function() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      if (!tab || !tab.url) {
+        showStatus('Unable to get current tab URL', true);
+        return;
+      }
+      
+      // Check if it's a restricted page
+      if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
+        showStatus('Cannot modify this page', true);
+        return;
+      }
+      
+      const currentUrl = new URL(tab.url);
+      
+      // List of all parameters that this extension can add
+      const extensionParams = [
+        // Debug parameters
+        'debug',
+        
+        // WordPress debug parameters
+        'WP_DEBUG',
+        'WPDEBUG', 
+        'wp_debug',
+        'WP_DEBUG_LOG',
+        'WP_DEBUG_DISPLAY',
+        'debug_queries',
+        'query_debug',
+        
+        // Cache parameters
+        'nocache',
+        'cache_bust',
+        'no_cache',
+        'v',
+        '_',
+        
+        // User switching parameters
+        'simulate_user_role',
+        'user_switching',
+        'switch_to'
+      ];
+      
+      let removedCount = 0;
+      
+      // Remove all extension-added parameters
+      extensionParams.forEach(param => {
+        if (currentUrl.searchParams.has(param)) {
+          currentUrl.searchParams.delete(param);
+          removedCount++;
+        }
+      });
+      
+      if (removedCount === 0) {
+        showStatus('No extension parameters found to remove');
+        return;
+      }
+      
+      // Update the tab with the cleaned URL
+      await chrome.tabs.update(tab.id, { url: currentUrl.toString() });
+      
+      showStatus(`Removed ${removedCount} parameter${removedCount !== 1 ? 's' : ''}`);
+      
+      // Close popup after successful action
       setTimeout(() => {
         window.close();
       }, 1000);
