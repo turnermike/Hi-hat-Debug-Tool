@@ -337,6 +337,27 @@ body {
   color: #3c434a;
 }
 
+/* Reset URL Parameters Section */
+.reset-params-section {
+  margin-top: 20px;
+  margin-bottom: 16px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 16px;
+}
+
+.wp-reset {
+  border-color: #e11d48;
+}
+
+.wp-reset:hover,
+.wp-reset.active {
+  background-color: #e11d48;
+}
+
+.wp-reset .wp-button-label {
+  color: #e11d48;
+}
+
 /* Vulnerability Scan Results */
 .scan-results-section {
   margin-top: 20px;
