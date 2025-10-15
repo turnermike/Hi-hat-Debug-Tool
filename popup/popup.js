@@ -1,3 +1,9 @@
+/**
+ * Hi-hat Debug Tool - Popup Script
+ * Handles all popup UI interactions and Chrome extension API calls
+ * Refactored with improved structure following Chrome extension best practices
+ */
+
 document.addEventListener('DOMContentLoaded', function() {
   const addDebugBtn = document.getElementById('addDebugBtn');
   const clearFormsBtn = document.getElementById('clearFormsBtn');

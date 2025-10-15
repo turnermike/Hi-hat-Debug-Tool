@@ -146,10 +146,16 @@ The extension uses Chrome's Extension API to provide comprehensive debugging cap
   ```
   debug-url-extension/
   ├── manifest.json         # Extension configuration & permissions
-  ├── popup.html            # Main UI with Tailwind-inspired styling
-  ├── popup.js              # Popup logic & Chrome API integration
-  ├── styles.css            # Custom CSS with responsive design
-  ├── content-all.js        # Content script for all functionality
+  ├── background.js         # Service worker for extension lifecycle
+  ├── content.js            # Content script injected into pages
+  ├── popup/
+  │   ├── popup.html        # Main UI with custom styling
+  │   ├── popup.js          # Popup logic & Chrome API integration
+  │   └── popup.css         # Custom CSS with responsive design
+  ├── assets/
+  │   └── icons/            # Extension icons (16, 32, 48, 128px)
+  ├── scripts/
+  │   └── utils.js          # Shared utility functions
   ├── WARP.md              # AI development guidance
   └── README.md            # Comprehensive documentation
   ```

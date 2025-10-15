@@ -4,28 +4,33 @@
   "version": "1.1",
   "description": "Developer tools for debugging: URL parameters, form clearing, measurements, vulnerability scanning, and WordPress-specific debug features",
   "icons": {
-    "16": "icon16.png",
-    "32": "icon32.png",
-    "48": "icon48.png",
-    "128": "icon128.png"
+    "16": "assets/icons/icon16.png",
+    "32": "assets/icons/icon32.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
   },
   "permissions": [
     "activeTab",
     "tabs",
-    "downloads"
+    "downloads",
+    "storage",
+    "contextMenus"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content-all.js"]
+      "js": ["content.js"]
     }
   ],
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "popup/popup.html",
     "default_title": "Hi-hat Debug Tool",
     "default_icon": {
-      "16": "icon16.png",
-      "32": "icon32.png"
+      "16": "assets/icons/icon16.png",
+      "32": "assets/icons/icon32.png"
     }
   }
 }
