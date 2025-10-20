@@ -1182,6 +1182,46 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     return true;
   }
+  
+  // Handle clipboard operations from keyboard shortcuts
+  if (request.action === 'copyToClipboard') {
+    try {
+      copyToClipboard(request.text);
+      sendResponse({ success: true });
+    } catch (error) {
+      sendResponse({ success: false, message: 'Error copying to clipboard: ' + error.message });
+    }
+    return true;
+  }
+  
+  if (request.action === 'readFromClipboard') {
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        navigator.clipboard.readText().then(text => {
+          sendResponse({ success: true, text: text });
+        }).catch(error => {
+          sendResponse({ success: false, message: 'Error reading clipboard: ' + error.message });
+        });
+        return true; // Keep the message channel open for async response
+      } else {
+        sendResponse({ success: false, message: 'Clipboard API not available' });
+      }
+    } catch (error) {
+      sendResponse({ success: false, message: 'Error reading clipboard: ' + error.message });
+    }
+    return true;
+  }
+  
+  // Handle notifications from background script
+  if (request.action === 'showNotification') {
+    try {
+      showClipboardNotification(request.message);
+      sendResponse({ success: true });
+    } catch (error) {
+      sendResponse({ success: false, message: 'Error showing notification: ' + error.message });
+    }
+    return true;
+  }
 });
 
 // Clipboard functionality

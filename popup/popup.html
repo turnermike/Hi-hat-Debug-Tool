@@ -11,7 +11,6 @@
     <!-- Header -->
     <div class="header">
       <div class="header-content">
-        <img src="../assets/icons/icon32.png" alt="Hi-hat Logo" class="logo">
         <div>
           <h1 class="title">Hi-hat Debug Tool</h1>
           <p class="subtitle">Development utilities</p>
@@ -20,51 +19,36 @@
     </div>
     
     <!-- Main Actions -->
-    <div class="button-grid">
-      <table class="button-table">
+    <div class="wp-button-grid">
+      <table class="wp-button-table">
         <tr>
-          <td class="button-cell">
-            <button id="addDebugBtn" class="action-button debug-button">
-              <svg class="button-icon debug-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-              <span class="button-label">Debug</span>
+          <td class="wp-button-cell">
+            <button id="addDebugBtn" class="wp-button debug-button">
+              <span class="wp-button-label">Debug</span>
             </button>
           </td>
-          <td class="button-cell">
-            <button id="clearFormsBtn" class="action-button clear-button">
-              <svg class="button-icon clear-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-              </svg>
-              <span class="button-label">Clear Form</span>
+          <td class="wp-button-cell">
+            <button id="clearFormsBtn" class="wp-button clear-button">
+              <span class="wp-button-label">Clear Forms</span>
             </button>
           </td>
-          <td class="button-cell">
-            <button id="measureBtn" class="action-button measure-button">
-              <svg class="button-icon measure-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 13H8"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 17H8"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9H8"></path>
-              </svg>
-              <span class="button-label">Measure</span>
-            </button>
+          <td class="wp-button-cell">
+            <!-- Empty cell for layout -->
           </td>
         </tr>
         <tr>
-          <td class="button-cell">
-            <button id="scanBtn" class="action-button scan-button">
-              <svg class="button-icon scan-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-              </svg>
-              <span class="button-label">Scan</span>
+          <td class="wp-button-cell">
+            <button id="measureBtn" class="wp-button measure-button">
+              <span class="wp-button-label">Measure</span>
             </button>
           </td>
-          <td class="button-cell">
-            <!-- Empty cells for layout -->
+          <td class="wp-button-cell">
+            <button id="scanBtn" class="wp-button scan-button">
+              <span class="wp-button-label">Scan</span>
+            </button>
           </td>
-          <td class="button-cell">
-            <!-- Empty cells for layout -->
+          <td class="wp-button-cell">
+            <!-- Empty cell for layout -->
           </td>
         </tr>
       </table>
@@ -168,6 +152,25 @@
       <div class="scan-actions">
         <button id="rescanWpBtn" class="scan-action-btn rescan-btn">Re-scan</button>
         <button id="clearWpResultsBtn" class="scan-action-btn clear-btn">Clear</button>
+      </div>
+    </div>
+    
+    <!-- Clipboard Section -->
+    <div class="clipboard-section">
+      <div class="section-header">
+        <svg class="section-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+        </svg>
+        <span class="section-title">Clipboard</span>
+      </div>
+      
+      <!-- Clipboard Content Display -->
+      <div id="clipboardDisplay" class="clipboard-display" style="display: none;">
+        <div class="clipboard-header">
+          Clipboard Contents:
+          <button id="refreshClipboardBtn" class="clipboard-refresh-btn" title="Refresh clipboard content">🔄</button>
+        </div>
+        <div id="clipboardContent" class="clipboard-content"></div>
       </div>
     </div>
     

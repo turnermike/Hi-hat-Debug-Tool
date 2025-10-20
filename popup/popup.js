@@ -50,6 +50,11 @@ document.addEventListener('DOMContentLoaded', function() {
   const rescanWpBtn = document.getElementById('rescanWpBtn');
   const clearWpResultsBtn = document.getElementById('clearWpResultsBtn');
   
+  // Clipboard elements
+  const clipboardDisplay = document.getElementById('clipboardDisplay');
+  const clipboardContent = document.getElementById('clipboardContent');
+  const refreshClipboardBtn = document.getElementById('refreshClipboardBtn');
+  
   // WordPress detection and initialization
   async function initializeWordPress() {
     try {
@@ -127,6 +132,42 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Initialize WordPress detection
   initializeWordPress();
+  
+  // Add refresh button click handler
+  refreshClipboardBtn.addEventListener('click', function() {
+    console.log('Refresh button clicked');
+    refreshClipboard();
+  });
+  
+  // Create a shared clipboard refresh function
+  async function refreshClipboard() {
+    console.log('Refreshing clipboard...');
+    
+    // Always show the clipboard section
+    clipboardDisplay.style.display = 'block';
+    
+    // Show loading state
+    updateClipboardDisplay('Reading clipboard...');
+    
+    try {
+      // Try the Clipboard API (works with user interaction)
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const clipboardText = await navigator.clipboard.readText();
+        console.log('Fresh clipboard text:', clipboardText);
+        updateClipboardDisplay(clipboardText || '');
+        return;
+      }
+    } catch (clipboardError) {
+      console.log('Clipboard API error:', clipboardError);
+      updateClipboardDisplay('Click refresh button to read clipboard');
+    }
+  }
+  
+  // Auto-trigger clipboard refresh when popup opens
+  // Use setTimeout to ensure DOM is fully loaded and simulate user interaction
+  setTimeout(() => {
+    refreshClipboard();
+  }, 100);
 
   function showStatus(message, isError = false) {
     statusDiv.textContent = message;
@@ -921,4 +962,20 @@ document.addEventListener('DOMContentLoaded', function() {
       showStatus('Error: ' + error.message, true);
     }
   });
+  
+  
+  function updateClipboardDisplay(text) {
+    if (text && text.trim()) {
+      clipboardContent.textContent = text.trim();
+      clipboardContent.style.fontStyle = 'normal';
+      clipboardContent.style.color = '#1e293b';
+      clipboardDisplay.style.display = 'block';
+    } else {
+      // Show a message when clipboard is empty
+      clipboardContent.textContent = 'No content available';
+      clipboardContent.style.fontStyle = 'italic';
+      clipboardContent.style.color = '#9ca3af';
+      clipboardDisplay.style.display = 'block';
+    }
+  }
 });

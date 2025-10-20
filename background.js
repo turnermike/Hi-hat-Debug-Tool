@@ -30,6 +30,71 @@ chrome.runtime.onStartup.addListener(() => {
   console.log('Hi-hat Debug Tool started');
 });
 
+// Handle keyboard shortcuts
+chrome.commands.onCommand.addListener(async (command) => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  
+  if (!tab || !tab.url) {
+    return;
+  }
+  
+  // Skip restricted pages
+  if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
+    return;
+  }
+  
+  if (command === 'copy-url') {
+    try {
+      // Store URL in extension storage
+      await chrome.storage.local.set({ 'clipboardUrl': tab.url });
+      
+      // Copy to system clipboard using content script
+      await chrome.tabs.sendMessage(tab.id, { 
+        action: 'copyToClipboard', 
+        text: tab.url 
+      });
+      
+      // Show notification
+      chrome.tabs.sendMessage(tab.id, { 
+        action: 'showNotification', 
+        message: 'URL copied to clipboard (Cmd+Shift+C)' 
+      });
+    } catch (error) {
+      console.error('Failed to copy URL:', error);
+    }
+  } else if (command === 'paste-url') {
+    try {
+      // Get URL from system clipboard using content script
+      const response = await chrome.tabs.sendMessage(tab.id, { 
+        action: 'readFromClipboard' 
+      });
+      
+      if (response && response.success && response.text) {
+        const clipboardText = response.text.trim();
+        
+        // Check if it's a valid URL
+        try {
+          new URL(clipboardText);
+          // Navigate to the URL
+          await chrome.tabs.update(tab.id, { url: clipboardText });
+          
+          // Store in extension storage
+          await chrome.storage.local.set({ 'clipboardUrl': clipboardText });
+        } catch (urlError) {
+          // Show error notification
+          chrome.tabs.sendMessage(tab.id, { 
+            action: 'showNotification', 
+            message: 'Clipboard does not contain a valid URL',
+            isError: true 
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to paste URL:', error);
+    }
+  }
+});
+
 // Handle messages from content scripts or popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Handle any background processing if needed
@@ -44,6 +109,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   
   if (request.action === 'logEvent') {
     console.log(`[${new Date().toISOString()}] ${request.event}:`, request.data);
+    return true;
+  }
+  
+  // Handle clipboard operations from popup
+  if (request.action === 'getClipboardUrl') {
+    chrome.storage.local.get(['clipboardUrl'], (result) => {
+      sendResponse({ clipboardUrl: result.clipboardUrl || '' });
+    });
     return true;
   }
 });

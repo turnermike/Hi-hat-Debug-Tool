@@ -14,7 +14,8 @@
     "tabs",
     "downloads",
     "storage",
-    "contextMenus"
+    "contextMenus",
+    "clipboardRead"
   ],
   "background": {
     "service_worker": "background.js"
@@ -31,6 +32,22 @@
     "default_icon": {
       "16": "assets/icons/icon16.png",
       "32": "assets/icons/icon32.png"
+    }
+  },
+  "commands": {
+    "copy-url": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+C",
+        "mac": "Command+Shift+C"
+      },
+      "description": "Copy current URL to clipboard"
+    },
+    "paste-url": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+V",
+        "mac": "Command+Shift+V"
+      },
+      "description": "Navigate to URL from clipboard"
     }
   }
 }
