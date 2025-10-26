@@ -32,54 +32,77 @@ chrome.runtime.onStartup.addListener(() => {
 
 // Handle keyboard shortcuts
 chrome.commands.onCommand.addListener(async (command) => {
+  console.log('=== KEYBOARD SHORTCUT TRIGGERED ===');
+  console.log('Command received:', command);
+  console.log('Timestamp:', new Date().toISOString());
+  
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  console.log('Active tab:', tab);
   
   if (!tab || !tab.url) {
+    console.error('No active tab or URL found');
     return;
   }
   
   // Skip restricted pages
   if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
+    console.warn('Skipping restricted page:', tab.url);
     return;
   }
   
+  console.log('Processing command on tab:', tab.url);
+  
   if (command === 'copy-url') {
+    console.log('Copy command triggered');
     try {
-      // Store URL in extension storage
-      await chrome.storage.local.set({ 'clipboardUrl': tab.url });
+      // Ask content script to get selected text
+      const response = await chrome.tabs.sendMessage(tab.id, {
+        action: 'getSelectedTextOrUrl'
+      });
+
+      console.log('Selected text response:', response);
+      const textToCopy = (response && response.text) ? response.text : tab.url;
+      console.log('Text to copy:', textToCopy);
       
+      // Store in extension storage
+      await chrome.storage.local.set({ 'clipboardUrl': textToCopy });
+
       // Copy to system clipboard using content script
-      await chrome.tabs.sendMessage(tab.id, { 
-        action: 'copyToClipboard', 
-        text: tab.url 
+      await chrome.tabs.sendMessage(tab.id, {
+        action: 'copyToClipboard',
+        text: textToCopy
+      });
+
+      // Show notification
+      const notificationMsg = (response && response.text) ? 'Text copied' : 'URL copied';
+      await chrome.tabs.sendMessage(tab.id, {
+        action: 'showNotification',
+        message: `${notificationMsg} (⌘⇧Y)`
       });
       
-      // Show notification
-      chrome.tabs.sendMessage(tab.id, { 
-        action: 'showNotification', 
-        message: 'URL copied to clipboard (Cmd+Shift+C)' 
-      });
+      console.log('Copy successful!');
     } catch (error) {
-      console.error('Failed to copy URL:', error);
+      console.error('Failed to copy:', error);
+      // Still store in extension storage even if content script fails
+      try {
+        await chrome.storage.local.set({ 'clipboardUrl': tab.url });
+        console.log('Stored URL in extension storage as fallback');
+      } catch (storageError) {
+        console.error('Storage fallback failed:', storageError);
+      }
     }
   } else if (command === 'paste-url') {
     try {
-      // Get URL from system clipboard using content script
-      const response = await chrome.tabs.sendMessage(tab.id, { 
-        action: 'readFromClipboard' 
-      });
+      // Get URL from extension storage first
+      const stored = await chrome.storage.local.get(['clipboardUrl']);
+      let clipboardText = stored.clipboardUrl;
       
-      if (response && response.success && response.text) {
-        const clipboardText = response.text.trim();
-        
+      if (clipboardText) {
         // Check if it's a valid URL
         try {
           new URL(clipboardText);
           // Navigate to the URL
           await chrome.tabs.update(tab.id, { url: clipboardText });
-          
-          // Store in extension storage
-          await chrome.storage.local.set({ 'clipboardUrl': clipboardText });
         } catch (urlError) {
           // Show error notification
           chrome.tabs.sendMessage(tab.id, { 
@@ -91,6 +114,69 @@ chrome.commands.onCommand.addListener(async (command) => {
       }
     } catch (error) {
       console.error('Failed to paste URL:', error);
+    }
+  } else if (command === 'copy-second') {
+    console.log('Copy-second command triggered');
+    try {
+      // Ask content script to get selected text
+      const response = await chrome.tabs.sendMessage(tab.id, {
+        action: 'getSelectedTextOrUrl'
+      });
+
+      const textToCopy = (response && response.text) ? response.text : tab.url;
+      console.log('Text to copy to 2nd clipboard:', textToCopy);
+      
+      // Store in second clipboard storage
+      await chrome.storage.local.set({ 'clipboardUrl2': textToCopy });
+
+      // Copy to system clipboard using content script
+      await chrome.tabs.sendMessage(tab.id, {
+        action: 'copyToClipboard',
+        text: textToCopy
+      });
+
+      // Show notification
+      const notificationMsg = (response && response.text) ? 'Text copied to secondary clipboard' : 'URL copied to secondary clipboard';
+      await chrome.tabs.sendMessage(tab.id, {
+        action: 'showNotification',
+        message: `${notificationMsg} (⌘⇧C)`
+      });
+      
+      console.log('Second clipboard copy successful!');
+    } catch (error) {
+      console.error('Failed to copy to second clipboard:', error);
+      // Still store in extension storage even if content script fails
+      try {
+        await chrome.storage.local.set({ 'clipboardUrl2': tab.url });
+        console.log('Stored URL in second clipboard storage as fallback');
+      } catch (storageError) {
+        console.error('Second clipboard storage fallback failed:', storageError);
+      }
+    }
+  } else if (command === 'paste-second') {
+    try {
+      // Get URL from second clipboard storage
+      const result = await chrome.storage.local.get(['clipboardUrl2']);
+
+      if (result.clipboardUrl2) {
+        const secondClipboardUrl = result.clipboardUrl2.trim();
+
+        // Check if it's a valid URL
+        try {
+          new URL(secondClipboardUrl);
+          // Navigate to the URL
+          await chrome.tabs.update(tab.id, { url: secondClipboardUrl });
+        } catch (urlError) {
+          // Show error notification
+          await chrome.tabs.sendMessage(tab.id, {
+            action: 'showNotification',
+            message: 'Second clipboard does not contain a valid URL',
+            isError: true
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to paste from second clipboard:', error);
     }
   }
 });
@@ -116,6 +202,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'getClipboardUrl') {
     chrome.storage.local.get(['clipboardUrl'], (result) => {
       sendResponse({ clipboardUrl: result.clipboardUrl || '' });
+    });
+    return true;
+  }
+  
+  if (request.action === 'getClipboardUrl2') {
+    chrome.storage.local.get(['clipboardUrl2'], (result) => {
+      sendResponse({ clipboardUrl2: result.clipboardUrl2 || '' });
     });
     return true;
   }

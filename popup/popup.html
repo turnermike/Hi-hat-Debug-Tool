@@ -161,16 +161,35 @@
         <svg class="section-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
         </svg>
-        <span class="section-title">Clipboard</span>
+        <span class="section-title">Clipboard (⌘+C)</span>
       </div>
       
       <!-- Clipboard Content Display -->
-      <div id="clipboardDisplay" class="clipboard-display" style="display: none;">
+      <div id="clipboardDisplay" class="clipboard-display" style="display: block;">
         <div class="clipboard-header">
-          Clipboard Contents:
+          Primary Clipboard Content:
           <button id="refreshClipboardBtn" class="clipboard-refresh-btn" title="Refresh clipboard content">🔄</button>
         </div>
         <div id="clipboardContent" class="clipboard-content"></div>
+      </div>
+    </div>
+    
+    <!-- Second Clipboard Section -->
+    <div class="clipboard-section clipboard-section-2">
+      <div class="section-header">
+        <svg class="section-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+        </svg>
+        <span class="section-title">Secondary Clipboard (⌘⇧C)</span>
+      </div>
+      
+      <!-- Second Clipboard Content Display -->
+      <div id="clipboardDisplay2" class="clipboard-display" style="display: block;">
+        <div class="clipboard-header">
+          Secondary Clipboard Content:
+          <button id="refreshClipboardBtn2" class="clipboard-refresh-btn" title="Refresh second clipboard content">🔄</button>
+        </div>
+        <div id="clipboardContent2" class="clipboard-content"></div>
       </div>
     </div>
     
