@@ -51,15 +51,15 @@
     },
     "copy-second": {
       "suggested_key": {
-        "default": "Ctrl+Shift+C",
-        "mac": "Command+Shift+C"
+        "default": "Ctrl+Shift+1",
+        "mac": "Command+Shift+1"
       },
       "description": "Copy selected text or URL to secondary clipboard"
     },
     "paste-second": {
       "suggested_key": {
-        "default": "Ctrl+Shift+O",
-        "mac": "Command+Shift+O"
+        "default": "Ctrl+Shift+2",
+        "mac": "Command+Shift+2"
       },
       "description": "Navigate to URL from second clipboard"
     }

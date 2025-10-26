@@ -123,23 +123,18 @@ chrome.commands.onCommand.addListener(async (command) => {
         action: 'getSelectedTextOrUrl'
       });
 
-      const textToCopy = (response && response.text) ? response.text : tab.url;
+      console.log('Selected text response:', response);
+      const textToCopy = (response && response.text && response.text.trim()) ? response.text : tab.url;
       console.log('Text to copy to 2nd clipboard:', textToCopy);
       
-      // Store in second clipboard storage
+      // Store in second clipboard storage (don't copy to system clipboard)
       await chrome.storage.local.set({ 'clipboardUrl2': textToCopy });
 
-      // Copy to system clipboard using content script
-      await chrome.tabs.sendMessage(tab.id, {
-        action: 'copyToClipboard',
-        text: textToCopy
-      });
-
       // Show notification
-      const notificationMsg = (response && response.text) ? 'Text copied to secondary clipboard' : 'URL copied to secondary clipboard';
+      const notificationMsg = (response && response.text && response.text.trim()) ? 'Text copied to secondary clipboard' : 'URL copied to secondary clipboard';
       await chrome.tabs.sendMessage(tab.id, {
         action: 'showNotification',
-        message: `${notificationMsg} (⌘⇧C)`
+        message: `${notificationMsg} (⌘⇧1)`
       });
       
       console.log('Second clipboard copy successful!');
@@ -154,29 +149,37 @@ chrome.commands.onCommand.addListener(async (command) => {
       }
     }
   } else if (command === 'paste-second') {
+    console.log('Paste-second command triggered');
     try {
-      // Get URL from second clipboard storage
+      // Get secondary clipboard storage
       const result = await chrome.storage.local.get(['clipboardUrl2']);
+      const secondaryClipboard = result.clipboardUrl2 || '';
 
-      if (result.clipboardUrl2) {
-        const secondClipboardUrl = result.clipboardUrl2.trim();
+      if (secondaryClipboard) {
+        console.log('Pasting from secondary clipboard:', secondaryClipboard);
 
-        // Check if it's a valid URL
-        try {
-          new URL(secondClipboardUrl);
-          // Navigate to the URL
-          await chrome.tabs.update(tab.id, { url: secondClipboardUrl });
-        } catch (urlError) {
-          // Show error notification
-          await chrome.tabs.sendMessage(tab.id, {
-            action: 'showNotification',
-            message: 'Second clipboard does not contain a valid URL',
-            isError: true
-          });
-        }
+        // Copy secondary clipboard to system clipboard
+        await chrome.tabs.sendMessage(tab.id, {
+          action: 'copyToClipboard',
+          text: secondaryClipboard
+        });
+
+        // Show notification
+        await chrome.tabs.sendMessage(tab.id, {
+          action: 'showNotification',
+          message: 'Secondary clipboard copied to system (⌘⇧2)'
+        });
+        
+        console.log('Secondary clipboard paste successful!');
+      } else {
+        // Show notification if clipboard is empty
+        await chrome.tabs.sendMessage(tab.id, {
+          action: 'showNotification',
+          message: 'Secondary clipboard is empty'
+        });
       }
     } catch (error) {
-      console.error('Failed to paste from second clipboard:', error);
+      console.error('Failed to paste from secondary clipboard:', error);
     }
   }
 });

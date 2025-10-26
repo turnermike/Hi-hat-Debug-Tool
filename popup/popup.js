@@ -55,6 +55,11 @@ document.addEventListener('DOMContentLoaded', function() {
   const clipboardContent = document.getElementById('clipboardContent');
   const refreshClipboardBtn = document.getElementById('refreshClipboardBtn');
   
+  // Secondary clipboard elements
+  const clipboardDisplay2 = document.getElementById('clipboardDisplay2');
+  const clipboardContent2 = document.getElementById('clipboardContent2');
+  const refreshClipboardBtn2 = document.getElementById('refreshClipboardBtn2');
+  
   // WordPress detection and initialization
   async function initializeWordPress() {
     try {
@@ -133,10 +138,15 @@ document.addEventListener('DOMContentLoaded', function() {
   // Initialize WordPress detection
   initializeWordPress();
   
-  // Add refresh button click handler
+  // Add refresh button click handlers
   refreshClipboardBtn.addEventListener('click', function() {
     console.log('Refresh button clicked');
     refreshClipboard();
+  });
+  
+  refreshClipboardBtn2.addEventListener('click', function() {
+    console.log('Refresh second clipboard button clicked');
+    refreshSecondClipboard();
   });
   
   // Create a shared clipboard refresh function
@@ -167,7 +177,34 @@ document.addEventListener('DOMContentLoaded', function() {
   // Use setTimeout to ensure DOM is fully loaded and simulate user interaction
   setTimeout(() => {
     refreshClipboard();
+    refreshSecondClipboard();
   }, 100);
+  
+  // Create a refresh function for the secondary clipboard
+  async function refreshSecondClipboard() {
+    console.log('Refreshing second clipboard...');
+    
+    // Always show the clipboard section
+    clipboardDisplay2.style.display = 'block';
+    
+    // Show loading state
+    updateSecondClipboardDisplay('Reading clipboard...');
+    
+    try {
+      // Get URL from second clipboard storage
+      const response = await chrome.runtime.sendMessage({ action: 'getClipboardUrl2' });
+      
+      if (response && response.clipboardUrl2) {
+        console.log('Second clipboard content:', response.clipboardUrl2);
+        updateSecondClipboardDisplay(response.clipboardUrl2);
+      } else {
+        updateSecondClipboardDisplay('');
+      }
+    } catch (error) {
+      console.log('Error reading second clipboard:', error);
+      updateSecondClipboardDisplay('Error reading clipboard');
+    }
+  }
 
   function showStatus(message, isError = false) {
     statusDiv.textContent = message;
@@ -976,6 +1013,21 @@ document.addEventListener('DOMContentLoaded', function() {
       clipboardContent.style.fontStyle = 'italic';
       clipboardContent.style.color = '#9ca3af';
       clipboardDisplay.style.display = 'block';
+    }
+  }
+  
+  function updateSecondClipboardDisplay(text) {
+    if (text && text.trim()) {
+      clipboardContent2.textContent = text.trim();
+      clipboardContent2.style.fontStyle = 'normal';
+      clipboardContent2.style.color = '#1e293b';
+      clipboardDisplay2.style.display = 'block';
+    } else {
+      // Show a message when clipboard is empty
+      clipboardContent2.textContent = 'No content available';
+      clipboardContent2.style.fontStyle = 'italic';
+      clipboardContent2.style.color = '#9ca3af';
+      clipboardDisplay2.style.display = 'block';
     }
   }
 });

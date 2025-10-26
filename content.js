@@ -1039,6 +1039,16 @@ function restoreScrollPosition() {
 // Listen for messages from the popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   
+  if (request.action === 'getSelectedTextOrUrl') {
+    try {
+      const selectedText = window.getSelection().toString().trim();
+      sendResponse({ success: true, text: selectedText || '' });
+    } catch (error) {
+      sendResponse({ success: false, text: '' });
+    }
+    return true;
+  }
+  
   if (request.action === 'scanVulnerabilities') {
     try {
       const results = scanForVulnerabilities();
