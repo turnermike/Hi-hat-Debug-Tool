@@ -86,15 +86,6 @@ A comprehensive Chrome extension that provides essential debugging, security, an
    - **Low:** Password autocomplete issues
 3. Use "Re-scan" to refresh results or "Clear" to hide them
 
-#### Reset Query Params
-1. Click the "Reset" button (red refresh icon) to clean up the URL
-2. Removes all extension-added parameters including:
-   - Debug parameters (`debug`)
-   - WordPress debug parameters (`WP_DEBUG`, `debug_queries`, etc.)
-   - Cache-busting parameters (`nocache`, `cache_bust`, etc.)
-   - User switching parameters (`simulate_user_role`, etc.)
-3. Shows count of removed parameters and reloads the page with clean URL
-
 ### WordPress-Specific Tools
 
 *WordPress tools automatically appear when a WordPress site is detected*
@@ -109,6 +100,17 @@ A comprehensive Chrome extension that provides essential debugging, security, an
 - **Admin:** Simulate administrator role
 - **Editor:** Simulate editor role  
 - **Switch Off:** Remove role simulation
+
+### URL Cleanup
+
+#### Reset Query Params
+1. Click the "Reset URL Params" button to clean up the URL
+2. Removes all extension-added parameters including:
+   - Debug parameters (`debug`)
+   - WordPress debug parameters (`WP_DEBUG`, `debug_queries`, etc.)
+   - Cache-busting parameters (`nocache`, `cache_bust`, etc.)
+   - User switching parameters (`simulate_user_role`, etc.)
+3. Shows count of removed parameters and reloads the page with clean URL
 
 ### Clear Cache Tools
 
