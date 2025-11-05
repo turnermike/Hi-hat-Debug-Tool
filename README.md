@@ -18,6 +18,11 @@ A comprehensive Chrome extension that provides essential debugging, security, an
 - 🚫 **Cache Busting** - Disable caching with timestamp parameters
 - 👥 **User Role Switching** - Simulate different user roles (when plugin detected)
 
+### Clear Cache Tools
+- 🗑️ **Site-Specific Cache Clearing** - Clear cache, cookies, storage, and more for the current site
+- 📦 **Multiple Data Types** - Cache, Cookies, Local Storage, IndexedDB, Service Workers, Cache Storage, Form Data, Web SQL
+- 🎯 **Origin-Based** - Only clears data for the current website origin, not global browser cache
+
 ## Installation
 
 ### Install as Developer Extension
@@ -104,6 +109,42 @@ A comprehensive Chrome extension that provides essential debugging, security, an
 - **Admin:** Simulate administrator role
 - **Editor:** Simulate editor role  
 - **Switch Off:** Remove role simulation
+
+### Clear Cache Tools
+
+#### How Cache Clearing Works
+The extension clears **site-specific** data for the current website's origin using Chrome's `browsingData` API. This is different from clearing Chrome's global disk cache.
+
+**What gets cleared:**
+- HTTP cache entries for the current website
+- Memory-cached resources for the current origin
+- Cookies, local storage, and other site-specific data
+
+**What doesn't get cleared:**
+- Global Chrome disk cache at `~/Library/Caches/Google/Chrome/`
+- Cache for other websites
+- Shared cache resources
+
+#### Verifying Cache Clearing
+To confirm the cache button is working:
+1. Open DevTools (F12) → Network tab
+2. Ensure "Disable cache" is unchecked
+3. Load a page with resources (images, CSS, JS)
+4. Note resource load status ("from disk cache" or 304)
+5. Click the Cache button in the extension
+6. Reload the page (F5)
+7. Resources should re-download with 200 status instead of loading from cache
+
+#### Available Clear Options
+- **Cache:** HTTP cache for current site
+- **Cookies:** Site cookies and session data
+- **Local Storage:** LocalStorage data
+- **IndexedDB:** IndexedDB databases
+- **Service Workers:** Registered service workers
+- **Cache Storage:** CacheStorage API data
+- **Form Data:** Autofill form data
+- **Web SQL:** Web SQL databases (deprecated but still supported)
+- **Clear All:** Removes all of the above for the current site
 
 ## How It Works
 

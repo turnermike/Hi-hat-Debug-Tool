@@ -15,7 +15,8 @@
     "downloads",
     "storage",
     "contextMenus",
-    "clipboardRead"
+    "clipboardRead",
+    "browsingData"
   ],
   "background": {
     "service_worker": "background.js"

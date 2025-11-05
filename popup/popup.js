@@ -55,6 +55,17 @@ document.addEventListener('DOMContentLoaded', function() {
   const clipboardContent = document.getElementById('clipboardContent');
   const refreshClipboardBtn = document.getElementById('refreshClipboardBtn');
   
+  // Clear Cache elements
+  const clearCacheBtn = document.getElementById('clearCacheBtn');
+  const clearCookiesBtn = document.getElementById('clearCookiesBtn');
+  const clearLocalStorageBtn = document.getElementById('clearLocalStorageBtn');
+  const clearIndexedDBBtn = document.getElementById('clearIndexedDBBtn');
+  const clearServiceWorkersBtn = document.getElementById('clearServiceWorkersBtn');
+  const clearCacheStorageBtn = document.getElementById('clearCacheStorageBtn');
+  const clearFormDataBtn = document.getElementById('clearFormDataBtn');
+  const clearWebSQLBtn = document.getElementById('clearWebSQLBtn');
+  const clearAllDataBtn = document.getElementById('clearAllDataBtn');
+  
   // WordPress detection and initialization
   async function initializeWordPress() {
     try {
@@ -978,4 +989,363 @@ document.addEventListener('DOMContentLoaded', function() {
       clipboardDisplay.style.display = 'block';
     }
   }
+  
+  // Clear Cache functionality
+  
+  // Helper function to get current tab origin for clearing site-specific data
+  async function getCurrentOrigin() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab && tab.url) {
+        const url = new URL(tab.url);
+        return url.origin;
+      }
+    } catch (error) {
+      console.error('Error getting current origin:', error);
+    }
+    return null;
+  }
+  
+  // Clear browser cache
+  clearCacheBtn.addEventListener('click', async function() {
+    const btn = clearCacheBtn;
+    const originalContent = btn.innerHTML;
+    
+    try {
+      // Show loading state
+      btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
+      btn.disabled = true;
+      
+      const origin = await getCurrentOrigin();
+      
+      if (origin) {
+        await chrome.browsingData.removeCache({
+          origins: [origin]
+        });
+        
+        // Show success state
+        btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
+        showStatus('Cache cleared successfully!');
+        
+        // Reset button after delay
+        setTimeout(() => {
+          btn.innerHTML = originalContent;
+          btn.disabled = false;
+        }, 2000);
+      } else {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+        showStatus('Cannot clear cache on this page', true);
+      }
+    } catch (error) {
+      btn.innerHTML = originalContent;
+      btn.disabled = false;
+      showStatus('Error clearing cache: ' + error.message, true);
+    }
+  });
+  
+  // Clear cookies
+  clearCookiesBtn.addEventListener('click', async function() {
+    const btn = clearCookiesBtn;
+    const originalContent = btn.innerHTML;
+    
+    try {
+      btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
+      btn.disabled = true;
+      
+      const origin = await getCurrentOrigin();
+      
+      if (origin) {
+        await chrome.browsingData.removeCookies({
+          origins: [origin]
+        });
+        
+        btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
+        showStatus('Cookies cleared successfully!');
+        
+        setTimeout(() => {
+          btn.innerHTML = originalContent;
+          btn.disabled = false;
+        }, 2000);
+      } else {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+        showStatus('Cannot clear cookies on this page', true);
+      }
+    } catch (error) {
+      btn.innerHTML = originalContent;
+      btn.disabled = false;
+      showStatus('Error clearing cookies: ' + error.message, true);
+    }
+  });
+  
+  // Clear local storage
+  clearLocalStorageBtn.addEventListener('click', async function() {
+    const btn = clearLocalStorageBtn;
+    const originalContent = btn.innerHTML;
+    
+    try {
+      btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
+      btn.disabled = true;
+      
+      const origin = await getCurrentOrigin();
+      
+      if (origin) {
+        await chrome.browsingData.removeLocalStorage({
+          origins: [origin]
+        });
+        
+        btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
+        showStatus('Local storage cleared successfully!');
+        
+        setTimeout(() => {
+          btn.innerHTML = originalContent;
+          btn.disabled = false;
+        }, 2000);
+      } else {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+        showStatus('Cannot clear local storage on this page', true);
+      }
+    } catch (error) {
+      btn.innerHTML = originalContent;
+      btn.disabled = false;
+      showStatus('Error clearing local storage: ' + error.message, true);
+    }
+  });
+  
+  // Clear IndexedDB
+  clearIndexedDBBtn.addEventListener('click', async function() {
+    const btn = clearIndexedDBBtn;
+    const originalContent = btn.innerHTML;
+    
+    try {
+      btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
+      btn.disabled = true;
+      
+      const origin = await getCurrentOrigin();
+      
+      if (origin) {
+        await chrome.browsingData.remove({
+          origins: [origin]
+        }, {
+          indexedDB: true
+        });
+        
+        btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
+        showStatus('IndexedDB cleared successfully!');
+        
+        setTimeout(() => {
+          btn.innerHTML = originalContent;
+          btn.disabled = false;
+        }, 2000);
+      } else {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+        showStatus('Cannot clear IndexedDB on this page', true);
+      }
+    } catch (error) {
+      btn.innerHTML = originalContent;
+      btn.disabled = false;
+      showStatus('Error clearing IndexedDB: ' + error.message, true);
+    }
+  });
+  
+  // Clear Service Workers
+  clearServiceWorkersBtn.addEventListener('click', async function() {
+    const btn = clearServiceWorkersBtn;
+    const originalContent = btn.innerHTML;
+    
+    try {
+      btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
+      btn.disabled = true;
+      
+      const origin = await getCurrentOrigin();
+      
+      if (origin) {
+        await chrome.browsingData.removeServiceWorkers({
+          origins: [origin]
+        });
+        
+        btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
+        showStatus('Service workers cleared successfully!');
+        
+        setTimeout(() => {
+          btn.innerHTML = originalContent;
+          btn.disabled = false;
+        }, 2000);
+      } else {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+        showStatus('Cannot clear service workers on this page', true);
+      }
+    } catch (error) {
+      btn.innerHTML = originalContent;
+      btn.disabled = false;
+      showStatus('Error clearing service workers: ' + error.message, true);
+    }
+  });
+  
+  // Clear Cache Storage (CacheStorage API)
+  clearCacheStorageBtn.addEventListener('click', async function() {
+    const btn = clearCacheStorageBtn;
+    const originalContent = btn.innerHTML;
+    
+    try {
+      btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
+      btn.disabled = true;
+      
+      const origin = await getCurrentOrigin();
+      
+      if (origin) {
+        await chrome.browsingData.remove({
+          origins: [origin]
+        }, {
+          cacheStorage: true
+        });
+        
+        btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
+        showStatus('Cache storage cleared successfully!');
+        
+        setTimeout(() => {
+          btn.innerHTML = originalContent;
+          btn.disabled = false;
+        }, 2000);
+      } else {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+        showStatus('Cannot clear cache storage on this page', true);
+      }
+    } catch (error) {
+      btn.innerHTML = originalContent;
+      btn.disabled = false;
+      showStatus('Error clearing cache storage: ' + error.message, true);
+    }
+  });
+  
+  // Clear Form Data (autofill)
+  clearFormDataBtn.addEventListener('click', async function() {
+    const btn = clearFormDataBtn;
+    const originalContent = btn.innerHTML;
+    
+    try {
+      btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
+      btn.disabled = true;
+      
+      const origin = await getCurrentOrigin();
+      
+      if (origin) {
+        await chrome.browsingData.removeFormData({
+          origins: [origin]
+        });
+        
+        btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
+        showStatus('Form data cleared successfully!');
+        
+        setTimeout(() => {
+          btn.innerHTML = originalContent;
+          btn.disabled = false;
+        }, 2000);
+      } else {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+        showStatus('Cannot clear form data on this page', true);
+      }
+    } catch (error) {
+      btn.innerHTML = originalContent;
+      btn.disabled = false;
+      showStatus('Error clearing form data: ' + error.message, true);
+    }
+  });
+  
+  // Clear Web SQL
+  clearWebSQLBtn.addEventListener('click', async function() {
+    const btn = clearWebSQLBtn;
+    const originalContent = btn.innerHTML;
+    
+    try {
+      btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
+      btn.disabled = true;
+      
+      const origin = await getCurrentOrigin();
+      
+      if (origin) {
+        await chrome.browsingData.remove({
+          origins: [origin]
+        }, {
+          webSQL: true
+        });
+        
+        btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
+        showStatus('Web SQL cleared successfully!');
+        
+        setTimeout(() => {
+          btn.innerHTML = originalContent;
+          btn.disabled = false;
+        }, 2000);
+      } else {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+        showStatus('Cannot clear Web SQL on this page', true);
+      }
+    } catch (error) {
+      btn.innerHTML = originalContent;
+      btn.disabled = false;
+      showStatus('Error clearing Web SQL: ' + error.message, true);
+    }
+  });
+  
+  // Clear all site data
+  clearAllDataBtn.addEventListener('click', async function() {
+    const btn = clearAllDataBtn;
+    const originalContent = btn.innerHTML;
+    
+    try {
+      btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
+      btn.disabled = true;
+      
+      const origin = await getCurrentOrigin();
+      
+      if (origin) {
+        // Add minimum delay to ensure loading state is visible
+        const clearPromise = chrome.browsingData.remove({
+          origins: [origin]
+        }, {
+          cache: true,
+          cookies: true,
+          localStorage: true,
+          indexedDB: true,
+          serviceWorkers: true,
+          cacheStorage: true,
+          formData: true,
+          webSQL: true
+        });
+        
+        const delayPromise = new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Wait for both clearing and minimum delay
+        await Promise.all([clearPromise, delayPromise]);
+        
+        btn.innerHTML = '<span class="wp-button-label">✓ All Cleared!</span>';
+        showStatus('All site data cleared! Reloading...');
+        
+        // Close popup and reload the tab after clearing all data
+        setTimeout(async () => {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (tab) {
+            await chrome.tabs.reload(tab.id);
+          }
+          window.close();
+        }, 1500);
+      } else {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+        showStatus('Cannot clear data on this page', true);
+      }
+    } catch (error) {
+      btn.innerHTML = originalContent;
+      btn.disabled = false;
+      showStatus('Error clearing all data: ' + error.message, true);
+    }
+  });
 });

@@ -246,6 +246,12 @@ body {
   color: white;
 }
 
+.wp-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* Main action button color variants */
 .wp-button.debug-button {
   border-color: #2563eb;
@@ -376,6 +382,125 @@ body {
 
 .wp-switch-user .wp-button-label {
   color: #3c434a;
+}
+
+/* Clear Cache Section */
+.clear-cache-section {
+  margin-top: 20px;
+  margin-bottom: 16px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 16px;
+}
+
+/* Clear Cache Button Styles */
+.cache-button {
+  border-color: #0891b2;
+}
+
+.cache-button:hover {
+  background-color: #0891b2;
+}
+
+.cache-button .wp-button-label {
+  color: #0891b2;
+}
+
+.cookies-button {
+  border-color: #f59e0b;
+}
+
+.cookies-button:hover {
+  background-color: #f59e0b;
+}
+
+.cookies-button .wp-button-label {
+  color: #f59e0b;
+}
+
+.storage-button {
+  border-color: #8b5cf6;
+}
+
+.storage-button:hover {
+  background-color: #8b5cf6;
+}
+
+.storage-button .wp-button-label {
+  color: #8b5cf6;
+}
+
+.indexeddb-button {
+  border-color: #ec4899;
+}
+
+.indexeddb-button:hover {
+  background-color: #ec4899;
+}
+
+.indexeddb-button .wp-button-label {
+  color: #ec4899;
+}
+
+.serviceworker-button {
+  border-color: #14b8a6;
+}
+
+.serviceworker-button:hover {
+  background-color: #14b8a6;
+}
+
+.serviceworker-button .wp-button-label {
+  color: #14b8a6;
+}
+
+.cachestorage-button {
+  border-color: #06b6d4;
+}
+
+.cachestorage-button:hover {
+  background-color: #06b6d4;
+}
+
+.cachestorage-button .wp-button-label {
+  color: #06b6d4;
+}
+
+.formdata-button {
+  border-color: #84cc16;
+}
+
+.formdata-button:hover {
+  background-color: #84cc16;
+}
+
+.formdata-button .wp-button-label {
+  color: #84cc16;
+}
+
+.websql-button {
+  border-color: #64748b;
+}
+
+.websql-button:hover {
+  background-color: #64748b;
+}
+
+.websql-button .wp-button-label {
+  color: #64748b;
+}
+
+.clear-all-button {
+  border-color: #dc2626;
+  font-weight: 600;
+}
+
+.clear-all-button:hover {
+  background-color: #dc2626;
+}
+
+.clear-all-button .wp-button-label {
+  color: #dc2626;
+  font-weight: 600;
 }
 
 /* Reset URL Parameters Section */
