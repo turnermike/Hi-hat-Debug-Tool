@@ -187,6 +187,7 @@ The extension uses Chrome's Extension API to provide comprehensive debugging cap
   ```
   debug-url-extension/
   ├── manifest.json         # Extension configuration & permissions
+  ├── package.json          # NPM dependencies and test scripts
   ├── background.js         # Service worker for extension lifecycle
   ├── content.js            # Content script injected into pages
   ├── popup/
@@ -197,6 +198,10 @@ The extension uses Chrome's Extension API to provide comprehensive debugging cap
   │   └── icons/            # Extension icons (16, 32, 48, 128px)
   ├── scripts/
   │   └── utils.js          # Shared utility functions
+  ├── tests/
+  │   ├── setup.js          # Jest setup with Chrome API mocks
+  │   ├── clearData.test.js # Unit tests for clear data functionality
+  │   └── README.md         # Test documentation
   ├── WARP.md              # AI development guidance
   └── README.md            # Comprehensive documentation
   ```
@@ -230,13 +235,69 @@ The vulnerability scanner detects:
 4. Click "Reload" on the Hi-hat Debug Tool extension card
 5. Test your changes
 
+### Testing
+
+The extension includes a comprehensive Jest test suite for critical functionality.
+
+#### Setup Tests
+
+```bash
+# Install test dependencies
+npm install
+```
+
+#### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode (auto-rerun on file changes)
+npm run test:watch
+
+# Generate coverage report
+npm run test:coverage
+```
+
+#### Test Coverage
+
+The test suite includes 23+ unit tests covering:
+
+- **getCurrentOrigin Function**
+  - Origin extraction from active tabs
+  - Error handling for invalid URLs
+  - Support for various URL formats (http/https, localhost, subdomains, custom ports)
+
+- **Clear Cache Functionality**
+  - Browser cache clearing for current origin
+  - Loading states and button updates
+  - Error handling for restricted pages
+
+- **Clear Cookies Functionality**
+  - Cookie removal for current origin
+  - Permission error handling
+  - Status message display
+
+- **Clear All Data Functionality**
+  - Comprehensive data removal (cache, cookies, localStorage, indexedDB, serviceWorkers, etc.)
+  - Tab reload after clearing
+  - Popup auto-close behavior
+
+- **Error Handling & Edge Cases**
+  - Restricted page handling (chrome://, etc.)
+  - Simultaneous operations
+  - Button state consistency during async operations
+
+For detailed test documentation, see [`tests/README.md`](tests/README.md).
+
 ### Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+4. **Run the test suite** (`npm test`)
+5. Test thoroughly in the browser
+6. Submit a pull request
 
 ## License
 

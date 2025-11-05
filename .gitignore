@@ -17,6 +17,11 @@ Thumbs.db
 node_modules/
 npm-debug.log*
 
+# Test coverage
+coverage/
+*.coverage
+.jest/
+
 # Temporary files
 *.tmp
 *.temp
