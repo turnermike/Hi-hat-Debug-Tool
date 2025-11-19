@@ -66,6 +66,43 @@ document.addEventListener('DOMContentLoaded', function() {
   const clearWebSQLBtn = document.getElementById('clearWebSQLBtn');
   const clearAllDataBtn = document.getElementById('clearAllDataBtn');
   
+  // Video Recording elements
+  const startRecordingBtn = document.getElementById('startRecordingBtn');
+  const stopRecordingBtn = document.getElementById('stopRecordingBtn');
+  const recordingStatus = document.getElementById('recordingStatus');
+  const recordingTime = document.querySelector('.recording-time');
+  
+  // Recording state
+  let mediaRecorder = null;
+  let recordedChunks = [];
+  let recordingStartTime = null;
+  let recordingInterval = null;
+  let streamId = null;
+  let isPaused = false;
+  let pausedTime = 0;
+  let currentTabId = null;
+  
+  // Listen for messages from content script (toolbar buttons)
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'togglePauseRecording') {
+      togglePauseRecording();
+      sendResponse({ success: true });
+      return true;
+    }
+    
+    if (request.action === 'stopRecording') {
+      stopRecording();
+      sendResponse({ success: true });
+      return true;
+    }
+    
+    if (request.action === 'startActualRecording') {
+      startActualRecording();
+      sendResponse({ success: true });
+      return true;
+    }
+  });
+  
   // WordPress detection and initialization
   async function initializeWordPress() {
     try {
@@ -1348,4 +1385,335 @@ document.addEventListener('DOMContentLoaded', function() {
       showStatus('Error clearing all data: ' + error.message, true);
     }
   });
+  
+// Video Recording functionality
+
+  // Constants for recording time limits
+  const MAX_RECORDING_TIME = 180; // 3 minutes in seconds  
+  const WARNING_TIME_30S = 150; // 30 seconds before max 
+  const WARNING_TIME_10S = 170; // 10 seconds before max
+  
+  // Format time as MM:SS
+  function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+  
+  // Update recording timer
+  function updateRecordingTimer() {
+    if (recordingStartTime) {
+      const elapsed = Math.floor((Date.now() - recordingStartTime - pausedTime) / 1000);
+      const timeString = formatTime(elapsed);
+      recordingTime.textContent = timeString;
+      
+      // Check if approaching time limits
+      let warningLevel = 'none';
+      let remainingTime = MAX_RECORDING_TIME - elapsed;
+      
+      if (elapsed >= WARNING_TIME_10S) {
+        warningLevel = 'critical';
+      } else if (elapsed >= WARNING_TIME_30S) {
+        warningLevel = 'warning';
+      }
+      
+      // Update toolbar on page with time details
+      if (currentTabId) {
+        chrome.tabs.sendMessage(currentTabId, { 
+          action: 'updateRecordingTime', 
+          time: timeString,
+          elapsed: elapsed,
+          remaining: remainingTime,
+          warningLevel: warningLevel
+        }).catch(() => {});
+      }
+      
+      // Automatically stop when limit is reached
+      if (elapsed >= MAX_RECORDING_TIME) {
+        console.log('Maximum recording time reached, stopping recording');
+        
+        // Show notification about time limit reached
+        if (currentTabId) {
+          chrome.tabs.sendMessage(currentTabId, { 
+            action: 'showNotification', 
+            message: 'Recording stopped: maximum time of 3 minutes reached'
+          }).catch(() => {});
+        }
+        
+        stopRecording();
+        return;
+      }
+    }
+  }
+  
+  // Start recording
+  startRecordingBtn.addEventListener('click', async function() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      if (!tab || !tab.url) {
+        showStatus('Unable to get current tab', true);
+        return;
+      }
+      
+      currentTabId = tab.id;
+      
+      // Check if it's a restricted page
+      if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
+        showStatus('Cannot record this page', true);
+        return;
+      }
+      
+      // Close popup immediately when user clicks Start Recording
+      setTimeout(() => {
+        window.close();
+      }, 200);
+      
+      // Show recording toolbar on the page (without starting recording immediately)
+      console.log('Showing recording toolbar without recording...');
+      
+      // Try multiple attempts with delays to ensure the page is ready
+      const tryShowToolbar = (attempt = 1, maxAttempts = 3) => {
+        chrome.tabs.sendMessage(currentTabId, { action: 'showRecordingToolbar', mode: 'ready' })
+          .then(response => {
+            if (!response || !response.success) {
+              console.error(`Failed to show recording toolbar (attempt ${attempt}):`, response?.message || 'Unknown error');
+              if (attempt < maxAttempts) {
+                setTimeout(() => tryShowToolbar(attempt + 1, maxAttempts), 500 * attempt);
+              }
+            } else {
+              console.log('Recording toolbar shown successfully');
+            }
+          })
+          .catch(error => {
+            console.error(`Error sending showRecordingToolbar message (attempt ${attempt}):`, error);
+            if (attempt < maxAttempts) {
+              setTimeout(() => tryShowToolbar(attempt + 1, maxAttempts), 500 * attempt);
+            }
+          });
+      };
+      
+      // First attempt with no delay
+      tryShowToolbar();
+      
+      // Store tabId but don't start recording yet
+      // The user must click play button in the toolbar to start recording
+      
+    } catch (error) {
+      showStatus('Error: ' + error.message, true);
+    }
+  });
+  
+  // New function to actually start recording when user clicks play
+  async function startActualRecording() {
+    try {
+      if (!currentTabId) {
+        showStatus('No active tab for recording', true);
+        return;
+      }
+      
+      // Request tab capture
+      console.log('Requesting tab capture for actual recording...');
+      chrome.tabCapture.capture({
+        audio: true,
+        video: true,
+        videoConstraints: {
+          mandatory: {
+            minWidth: 1280,
+            minHeight: 720,
+            maxWidth: 1920,
+            maxHeight: 1080,
+            maxFrameRate: 30
+          }
+        }
+      }, (stream) => {
+        if (chrome.runtime.lastError) {
+          console.error('Tab capture error:', chrome.runtime.lastError);
+          showStatus('Error: ' + chrome.runtime.lastError.message, true);
+          return;
+        }
+        
+        if (!stream) {
+          console.error('No stream received');
+          showStatus('Failed to capture tab', true);
+          return;
+        }
+        
+        console.log('Stream received:', stream);
+        
+        // Create media recorder
+        try {
+          recordedChunks = [];
+          isPaused = false;
+          pausedTime = 0;
+          
+          const options = { mimeType: 'video/webm;codecs=vp9' };
+          
+          // Fallback to vp8 if vp9 is not supported
+          if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+            console.log('VP9 not supported, falling back to VP8');
+            options.mimeType = 'video/webm;codecs=vp8';
+          }
+          
+          console.log('Creating MediaRecorder with options:', options);
+          mediaRecorder = new MediaRecorder(stream, options);
+          console.log('MediaRecorder created successfully');
+          
+          mediaRecorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) {
+              recordedChunks.push(event.data);
+              console.log('Data chunk received:', event.data.size, 'bytes. Total chunks:', recordedChunks.length);
+            }
+          };
+          
+          mediaRecorder.onstop = async () => {
+            console.log('MediaRecorder stopped. Total chunks:', recordedChunks.length);
+            // Stop all tracks
+            stream.getTracks().forEach(track => track.stop());
+            
+            // Create blob from recorded chunks
+            const blob = new Blob(recordedChunks, { type: 'video/webm' });
+            
+            // Generate filename
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            const filename = `recording-${timestamp}.webm`;
+            
+            // Create download URL
+            const url = URL.createObjectURL(blob);
+            
+            // Download the video
+            try {
+              await chrome.downloads.download({
+                url: url,
+                filename: filename,
+                saveAs: true
+              });
+              
+              showStatus('Recording saved!');
+            } catch (error) {
+              showStatus('Error saving recording: ' + error.message, true);
+            } finally {
+              URL.revokeObjectURL(url);
+            }
+            
+            // Hide toolbar
+            if (currentTabId) {
+              chrome.tabs.sendMessage(currentTabId, { 
+                action: 'hideRecordingToolbar' 
+              }).catch(() => {});
+            }
+            
+            // Reset UI
+            recordingStatus.style.display = 'none';
+            startRecordingBtn.disabled = false;
+            stopRecordingBtn.disabled = true;
+            stopRecordingBtn.style.opacity = '0.5';
+            
+            // Clear interval
+            if (recordingInterval) {
+              clearInterval(recordingInterval);
+              recordingInterval = null;
+            }
+            
+            recordedChunks = [];
+            mediaRecorder = null;
+            isPaused = false;
+            pausedTime = 0;
+            currentTabId = null;
+          };
+          
+          // Start recording
+          console.log('Starting MediaRecorder...');
+          mediaRecorder.start(100); // Collect data every 100ms
+          console.log('MediaRecorder state:', mediaRecorder.state);
+          
+          // Update UI
+          recordingStartTime = Date.now();
+          recordingTime.textContent = '00:00';
+          recordingStatus.style.display = 'block';
+          startRecordingBtn.disabled = true;
+          stopRecordingBtn.disabled = false;
+          stopRecordingBtn.style.opacity = '1';
+          
+          // Update toolbar state to recording
+          chrome.tabs.sendMessage(currentTabId, { action: 'updateRecordingState', state: 'recording' })
+            .catch(() => {});
+          
+          // Start timer
+          recordingInterval = setInterval(() => {
+            if (!isPaused) {
+              updateRecordingTimer();
+            }
+          }, 1000);
+          
+          showStatus('Recording started');
+          console.log('Recording setup complete');
+          
+    } catch (error) {
+      showStatus('Error starting recording: ' + error.message, true);
+      stream.getTracks().forEach(track => track.stop());
+    }
+  });
+  
+    } catch (error) {
+      showStatus('Error: ' + error.message, true);
+    }
+  }
+  
+  // Toggle pause/resume recording
+  function togglePauseRecording() {
+    if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+    
+    if (mediaRecorder.state === 'recording') {
+      // Pause
+      mediaRecorder.pause();
+      isPaused = true;
+      const pauseStartTime = Date.now();
+      
+      // Update toolbar UI
+      if (currentTabId) {
+        chrome.tabs.sendMessage(currentTabId, { 
+          action: 'updateRecordingState', 
+          state: 'paused' 
+        }).catch(() => {});
+      }
+      
+      showStatus('Recording paused');
+      
+      // Store when pause started for accurate time tracking
+      window.pauseStartTime = pauseStartTime;
+      
+    } else if (mediaRecorder.state === 'paused') {
+      // Resume
+      mediaRecorder.resume();
+      isPaused = false;
+      
+      // Add the paused duration to total paused time
+      if (window.pauseStartTime) {
+        pausedTime += Date.now() - window.pauseStartTime;
+        delete window.pauseStartTime;
+      }
+      
+      // Update toolbar UI
+      if (currentTabId) {
+        chrome.tabs.sendMessage(currentTabId, { 
+          action: 'updateRecordingState', 
+          state: 'recording' 
+        }).catch(() => {});
+      }
+      
+      showStatus('Recording resumed');
+    }
+  }
+  
+  // Stop recording function
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      showStatus('Stopping recording...');
+    }
+  }
+  
+  // Stop recording
+  stopRecordingBtn.addEventListener('click', stopRecording);
 });

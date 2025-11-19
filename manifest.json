@@ -16,7 +16,8 @@
     "storage",
     "contextMenus",
     "clipboardRead",
-    "browsingData"
+    "browsingData",
+    "tabCapture"
   ],
   "background": {
     "service_worker": "background.js"

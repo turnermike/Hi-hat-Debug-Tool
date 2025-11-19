@@ -220,6 +220,7 @@ body {
 
 .wp-button {
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
   width: 100%;
@@ -230,6 +231,8 @@ body {
   cursor: pointer;
   transition: all 150ms ease;
   font-family: inherit;
+  gap: 4px;
+  padding: 0 8px;
 }
 
 .wp-button:hover {
@@ -973,4 +976,121 @@ body {
   padding: 4px 6px;
   border-radius: 3px;
   border: 1px solid #e2e8f0;
+}
+
+/* Video Recording Styles */
+.recording-button {
+  border-color: #dc2626;
+}
+
+.recording-button:hover,
+.recording-button.active {
+  background-color: #dc2626;
+}
+
+.recording-button .wp-button-label {
+  color: #dc2626;
+}
+
+.recording-button:hover .wp-button-label,
+.recording-button.active .wp-button-label {
+  color: white;
+}
+
+.stop-recording-button {
+  border-color: #6b7280;
+}
+
+.stop-recording-button:not(:disabled):hover {
+  background-color: #6b7280;
+}
+
+.stop-recording-button .wp-button-label {
+  color: #6b7280;
+}
+
+.stop-recording-button:not(:disabled):hover .wp-button-label {
+  color: white;
+}
+
+.stop-recording-button:disabled {
+  cursor: not-allowed;
+}
+
+.recording-status {
+  margin-top: 12px;
+  padding: 12px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+}
+
+.recording-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #dc2626;
+}
+
+.recording-dot {
+  width: 10px;
+  height: 10px;
+  background-color: #dc2626;
+  border-radius: 50%;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.1);
+  }
+}
+
+.recording-time {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #dc2626;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.recording-text {
+  font-size: 13px;
+}
+
+/* Recording button icon styles */
+.play-icon {
+  color: #dc2626;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.stop-icon {
+  color: #6b7280;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.recording-button:hover .play-icon,
+.recording-button.active .play-icon {
+  color: white;
+}
+
+.stop-recording-button:not(:disabled):hover .stop-icon {
+  color: white;
+}
+
+.stop-recording-button:disabled .stop-icon {
+  color: #9ca3af;
 }

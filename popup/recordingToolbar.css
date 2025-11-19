@@ -1,0 +1,117 @@
+/* Recording Toolbar CSS */
+#hihat-recording-toolbar {
+  position: fixed !important;
+  top: 20px !important;
+  right: 20px !important;
+  background: rgba(23, 23, 23, 0.95) !important;
+  backdrop-filter: blur(10px) !important;
+  color: white !important;
+  padding: 12px 16px !important;
+  border-radius: 8px !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-size: 13px !important;
+  z-index: 2147483647 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-width: 240px !important;
+}
+
+#hihat-recording-toolbar .hihat-rec-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#hihat-recording-toolbar .hihat-rec-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  animation: hihat-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes hihat-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.2);
+  }
+}
+
+#hihat-recording-toolbar .hihat-rec-label {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+#hihat-recording-toolbar .hihat-rec-time {
+  font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: #fbbf24;
+  margin-left: auto;
+}
+
+#hihat-recording-toolbar .hihat-rec-controls {
+  display: flex;
+  gap: 6px;
+  margin-left: 8px;
+}
+
+#hihat-recording-toolbar .hihat-rec-btn {
+  border: none;
+  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+#hihat-recording-toolbar .hihat-rec-pause {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+#hihat-recording-toolbar .hihat-rec-pause:hover {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+#hihat-recording-toolbar .hihat-rec-pause:active {
+  transform: scale(0.95);
+}
+
+#hihat-recording-toolbar .hihat-rec-stop {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+#hihat-recording-toolbar .hihat-rec-stop:hover {
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+#hihat-recording-toolbar .hihat-rec-stop:active {
+  transform: scale(0.95);
+}
+
+#hihat-recording-toolbar .hihat-rec-pause.paused {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+#hihat-recording-toolbar .hihat-rec-pause.paused:hover {
+  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}

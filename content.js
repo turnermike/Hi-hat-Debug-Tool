@@ -1215,10 +1215,58 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Handle notifications from background script
   if (request.action === 'showNotification') {
     try {
-      showClipboardNotification(request.message);
+      if (request.message.includes('recording stopped') || request.message.includes('time limit reached')) {
+        showRecordingNotification(request.message, 'warning');
+      } else {
+        showClipboardNotification(request.message);
+      }
       sendResponse({ success: true });
     } catch (error) {
       sendResponse({ success: false, message: 'Error showing notification: ' + error.message });
+    }
+    return true;
+  }
+  
+  // Handle recording toolbar commands
+  if (request.action === 'showRecordingToolbar') {
+    try {
+      showRecordingToolbar();
+      sendResponse({ success: true });
+    } catch (error) {
+      sendResponse({ success: false, message: 'Error showing toolbar: ' + error.message });
+    }
+    return true;
+  }
+  
+  if (request.action === 'updateRecordingTime') {
+    try {
+      updateRecordingToolbarTime(request.time, {
+        remaining: request.remaining,
+        warningLevel: request.warningLevel
+      });
+      sendResponse({ success: true });
+    } catch (error) {
+      sendResponse({ success: false, message: 'Error updating time: ' + error.message });
+    }
+    return true;
+  }
+  
+  if (request.action === 'hideRecordingToolbar') {
+    try {
+      hideRecordingToolbar();
+      sendResponse({ success: true });
+    } catch (error) {
+      sendResponse({ success: false, message: 'Error hiding toolbar: ' + error.message });
+    }
+    return true;
+  }
+  
+  if (request.action === 'updateRecordingState') {
+    try {
+      updateRecordingToolbarState(request.state);
+      sendResponse({ success: true });
+    } catch (error) {
+      sendResponse({ success: false, message: 'Error updating state: ' + error.message });
     }
     return true;
   }
@@ -1304,5 +1352,327 @@ function showClipboardNotification(text) {
       }, 300);
     }
   }, 2000);
+}
+
+function showRecordingNotification(text, level = 'info') {
+  const existing = document.getElementById('hihat-recording-notification');
+  if (existing) existing.remove();
+  
+  const notification = document.createElement('div');
+  notification.id = 'hihat-recording-notification';
+  notification.textContent = text;
+  notification.style.cssText = `
+    position: fixed !important;
+    top: 20px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    background: ${level === 'warning' ? 'rgba(245, 158, 11, 0.95)' : 'rgba(34, 197, 94, 0.95)'} !important;
+    color: white !important;
+    padding: 10px 16px !important;
+    border-radius: 6px !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    z-index: 2147483649 !important;
+    pointer-events: none !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  `;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.style.transition = 'opacity 0.3s ease-out';
+      notification.style.opacity = '0';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.remove();
+        }
+      }, 300);
+    }
+  }, 2500);
+}
+
+// Recording Toolbar Functions
+function showRecordingToolbar(details = {}) {
+  console.log('showRecordingToolbar function called');
+  console.log('Document readyState:', document.readyState);
+  console.log('Document body present:', !!document.body);
+  console.log('Toolbar mode:', details.mode || 'recording');
+  
+  const isReadyMode = details.mode === 'ready';
+  
+  // Check if we're in an iframe (might be restricted)
+  if (window.self !== window.top) {
+    console.log('Extension running in an iframe, may have restrictions');
+  }
+  
+  // Remove any existing toolbar
+  const existing = document.getElementById('hihat-recording-toolbar');
+  if (existing) {
+    console.log('Removing existing toolbar');
+    existing.remove();
+  }
+  
+  const toolbar = document.createElement('div');
+  toolbar.id = 'hihat-recording-toolbar';
+  
+  // Apply all styles with cssText (simpler and more reliable)
+  toolbar.style.cssText = `
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    background: rgba(23, 23, 23, 0.95) !important;
+    backdrop-filter: blur(10px) !important;
+    color: white !important;
+    padding: 12px 16px !important;
+    border-radius: 8px !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-size: 13px !important;
+    z-index: 2147483647 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    min-width: 240px !important;
+    border: 3px solid red !important;
+  `;
+  
+  // Add animation keyframes directly to style tag
+  const pulseKeyframes = `@keyframes hihat-pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(1.2);
+    }
+  }
+  
+  @keyframes hihat-record-pulse {
+    0% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    }
+    70% {
+      transform: scale(1.05);
+      box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+  }`;
+  
+  const style = document.createElement('style');
+  style.textContent = pulseKeyframes;
+  
+  document.head.appendChild(style);
+  document.body.appendChild(toolbar);
+  
+  // Create status section
+  const statusDiv = document.createElement('div');
+  statusDiv.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+  
+  // Create dot
+  const dot = document.createElement('span');
+  dot.style.cssText = 'width: 8px; height: 8px; background-color: #ef4444; border-radius: 50%; animation: hihat-pulse 1.5s ease-in-out infinite';
+  dot.className = 'hihat-rec-dot';
+  
+  // Create label
+  const label = document.createElement('span');
+  label.textContent = 'Recording';
+  label.style.cssText = 'font-weight: 600; font-size: 13px;';
+  label.className = 'hihat-rec-label';
+  
+  statusDiv.appendChild(dot);
+  statusDiv.appendChild(label);
+  
+  // Create time display
+  const timeDiv = document.createElement('div');
+  timeDiv.textContent = '00:00';
+  timeDiv.style.cssText = 'font-family: "SF Mono", Monaco, "Courier New", monospace; font-size: 16px; font-weight: 600; letter-spacing: 0.5px; color: #fbbf24; margin-left: auto;';
+  timeDiv.className = 'hihat-rec-time';
+  
+  // Create controls section
+  const controlsDiv = document.createElement('div');
+  controlsDiv.style.cssText = 'display: flex; gap: 6px; margin-left: 8px;';
+  
+  // Create play/pause button with FontAwesome icon
+  const playPauseBtn = document.createElement('button');
+  playPauseBtn.id = 'hihat-pause-btn'; // Keep ID for compatibility
+  
+  if (isReadyMode) {
+    // Show record button in ready mode
+    playPauseBtn.title = 'Start Recording';
+    playPauseBtn.style.cssText = 'border: none; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; transition: all 0.2s ease; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.7); animation: hihat-record-pulse 1.5s ease-in-out infinite; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);';
+    playPauseBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 448 512" fill="currentColor"><circle cx="224" cy="256" r="224"/></svg>`;
+    
+    // In ready mode, clicking play starts the recording
+    const readyClickHandler = () => {
+      chrome.runtime.sendMessage({ action: 'startActualRecording' });
+    };
+    playPauseBtn.addEventListener('click', readyClickHandler);
+    playPauseBtn._readyClickHandler = readyClickHandler;
+  } else {
+    // Show record button in recording mode
+    playPauseBtn.title = 'Start Recording';
+    playPauseBtn.style.cssText = 'border: none; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3); background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);';
+    playPauseBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 448 512" fill="currentColor"><circle cx="224" cy="256" r="224"/></svg>`;
+  }
+  
+  // Create stop button with FontAwesome icon
+  const stopBtn = document.createElement('button');
+  stopBtn.id = 'hihat-stop-btn';
+  stopBtn.title = 'Stop';
+  stopBtn.style.cssText = 'border: none; border-radius: 6px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2); background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);';
+  stopBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 384 512" fill="currentColor"><path d="M352 80v352c0 26.5-21.5 48-48 48H80c-26.5 0-48-21.5-48-48V80c0-26.5 21.5-48 48-48h224c26.5 0 48 21.5 48 48z"/></svg>`;
+  
+  controlsDiv.appendChild(playPauseBtn);
+  controlsDiv.appendChild(stopBtn);
+  
+  // Assemble toolbar
+  toolbar.appendChild(statusDiv);
+  toolbar.appendChild(timeDiv);
+  toolbar.appendChild(controlsDiv);
+  
+  // Update status text based on mode
+  if (isReadyMode) {
+    label.textContent = 'Ready to Record';
+    dot.style.display = 'none'; // Hide the recording dot in ready mode
+  }
+  
+  // Log that toolbar was added
+  console.log('Recording toolbar added to DOM');
+  console.log('Toolbar DOM element:', toolbar);
+  console.log('Toolbar position:', getComputedStyle(toolbar).position);
+  console.log('Toolbar z-index:', getComputedStyle(toolbar).zIndex);
+  console.log('Toolbar visibility:', getComputedStyle(toolbar).visibility);
+  
+  // Add event listeners for buttons
+  if (!isReadyMode) {
+    // Only add pause toggle event if not in ready mode
+    playPauseBtn.addEventListener('click', () => {
+      chrome.runtime.sendMessage({ action: 'togglePauseRecording' });
+    });
+  }
+  
+  stopBtn.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ action: 'stopRecording' });
+  });
+  
+  if (pauseBtn) {
+    pauseBtn.addEventListener('click', () => {
+      chrome.runtime.sendMessage({ action: 'togglePauseRecording' });
+    });
+  }
+  
+  if (stopBtn) {
+    stopBtn.addEventListener('click', () => {
+      chrome.runtime.sendMessage({ action: 'stopRecording' });
+    });
+  }
+  
+  console.log('Event listeners added to buttons');
+}
+
+function updateRecordingToolbarTime(timeString, details) {
+  const toolbar = document.getElementById('hihat-recording-toolbar');
+  if (toolbar) {
+    const timeElement = toolbar.querySelector('.hihat-rec-time');
+    if (timeElement) {
+      // Format as remaining time if provided
+      if (details && details.remaining !== undefined) {
+        const remainingTime = Math.max(0, Math.floor(details.remaining));
+        const remainingMins = Math.floor(remainingTime / 60);
+        const remainingSecs = remainingTime % 60;
+        timeElement.textContent = `${String(remainingMins).padStart(2, '0')}:${String(remainingSecs).padStart(2, '0')}`;
+        
+        // Apply warning styles based on warning level
+        switch (details.warningLevel) {
+          case 'critical':
+            timeElement.style.color = '#ef4444';
+            toolbar.style.border = '3px solid #ef4444';
+            toolbar.style.animation = 'hihat-pulse 0.5s ease-in-out infinite';
+            break;
+          case 'warning':
+            timeElement.style.color = '#f59e0b';
+            toolbar.style.border = '3px solid #f59e0b';
+            toolbar.style.animation = '';
+            break;
+          default:
+            timeElement.style.color = '#fbbf24';
+            toolbar.style.border = '3px solid red';
+            toolbar.style.animation = '';
+        }
+      } else {
+        timeElement.textContent = timeString;
+        timeElement.style.color = '#fbbf24';
+      }
+    }
+  }
+}
+
+function hideRecordingToolbar() {
+  const toolbar = document.getElementById('hihat-recording-toolbar');
+  if (toolbar) {
+    toolbar.style.transition = 'opacity 0.3s ease-out';
+    toolbar.style.opacity = '0';
+    setTimeout(() => {
+      if (toolbar.parentNode) {
+        toolbar.remove();
+      }
+    }, 300);
+  }
+}
+
+function updateRecordingToolbarState(state) {
+  const toolbar = document.getElementById('hihat-recording-toolbar');
+  if (!toolbar) return;
+  
+  const playPauseBtn = toolbar.querySelector('#hihat-pause-btn');
+  const statusLabel = toolbar.querySelector('.hihat-rec-label');
+  const dot = toolbar.querySelector('.hihat-rec-dot');
+  
+  // Handle transition from ready mode to recording mode
+  if (state === 'recording' && statusLabel.textContent === 'Ready to Record') {
+    // Switch to recording mode
+    statusLabel.textContent = 'Recording';
+    dot.style.display = 'block'; // Show the recording dot
+    
+    // Update button to record
+    playPauseBtn.title = 'Start Recording';
+    playPauseBtn.style.cssText = 'border: none; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3); background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);';
+    playPauseBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 448 512" fill="currentColor"><circle cx="224" cy="256" r="224"/></svg>`;
+    
+    // Replace the click handler
+    playPauseBtn.removeEventListener('click', playPauseBtn._readyClickHandler);
+    playPauseBtn.addEventListener('click', () => {
+      chrome.runtime.sendMessage({ action: 'togglePauseRecording' });
+    });
+    
+    return; // Don't continue to the regular state handling
+  }
+  
+  if (state === 'paused') {
+    playPauseBtn.classList.add('paused');
+    playPauseBtn.title = 'Resume Recording';
+    playPauseBtn.style.cssText = 'border: none; border-radius: 6px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(21, 128, 61, 0.3); background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);';
+    playPauseBtn.innerHTML = `<svg width="12" height="14" viewBox="0 0 320 512" fill="currentColor"><path d="M368 80h-320c-17.67 0-32 14.33-32 32v256c0 17.67 14.33 32 32 32h320c17.67 0 32-14.33 32-32v-256c0-17.67-14.33-32-32-32zm-352 80l144 72v-144l-144 72z"/></svg>`;
+    statusLabel.textContent = 'Recording Paused';
+    dot.style.animationPlayState = 'paused';
+    dot.style.backgroundColor = '#fbbf24';
+  } else if (state === 'recording') {
+    playPauseBtn.classList.remove('paused');
+    playPauseBtn.title = 'Start Recording';
+    playPauseBtn.style.cssText = 'border: none; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3); background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);';
+    playPauseBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 448 512" fill="currentColor"><circle cx="224" cy="256" r="224"/></svg>`;
+    statusLabel.textContent = 'Recording';
+    dot.style.animationPlayState = 'running';
+    dot.style.backgroundColor = '#ef4444';
+  }
 }
 

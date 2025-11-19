@@ -308,6 +308,51 @@
       </div>
     </div>
     
+    <!-- Video Recording Section -->
+    <div class="recording-section">
+      <div class="section-header">
+        <svg class="section-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+        </svg>
+        <span class="section-title">Video Recording</span>
+      </div>
+      
+      <div class="wp-button-grid">
+        <table class="wp-button-table">
+          <tr>
+            <td class="wp-button-cell">
+              <button id="startRecordingBtn" class="wp-button recording-button">
+                <svg class="button-icon play-icon" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+                <span class="wp-button-label">Start Recording</span>
+              </button>
+            </td>
+            <td class="wp-button-cell">
+              <button id="stopRecordingBtn" class="wp-button stop-recording-button" disabled style="opacity: 0.5;">
+                <svg class="button-icon stop-icon" fill="currentColor" viewBox="0 0 24 24">
+                  <rect x="6" y="6" width="12" height="12"/>
+                </svg>
+                <span class="wp-button-label">Stop Recording</span>
+              </button>
+            </td>
+            <td class="wp-button-cell">
+              <!-- Empty cell for layout -->
+            </td>
+          </tr>
+        </table>
+      </div>
+      
+      <!-- Recording Status -->
+      <div id="recordingStatus" class="recording-status" style="display: none;">
+        <div class="recording-indicator">
+          <span class="recording-dot"></span>
+          <span class="recording-text">Recording in progress...</span>
+        </div>
+        <div class="recording-time">00:00</div>
+      </div>
+    </div>
+    
     <!-- Filename Input Modal -->
     <div id="filenameModal" class="modal-overlay" style="display: none;">
       <div class="modal-content">
