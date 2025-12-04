@@ -991,6 +991,18 @@ body {
   border: 1px solid #e2e8f0;
 }
 
+.clipboard-clear-button {
+  border-color: #dc2626;
+}
+
+.clipboard-clear-button:hover {
+  background-color: #dc2626;
+}
+
+.clipboard-clear-button .wp-button-label {
+  color: #dc2626;
+}
+
 /* Video Recording Styles */
 .recording-section {
   display: none;

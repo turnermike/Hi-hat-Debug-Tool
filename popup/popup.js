@@ -55,6 +55,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const clipboardDisplay = document.getElementById('clipboardDisplay');
   const clipboardContent = document.getElementById('clipboardContent');
   const refreshClipboardBtn = document.getElementById('refreshClipboardBtn');
+  const clearClipboardBtn = document.getElementById('clearClipboardBtn');
   
   // Clear Cache elements
   const clearCacheBtn = document.getElementById('clearCacheBtn');
@@ -186,6 +187,11 @@ document.addEventListener('DOMContentLoaded', function() {
   refreshClipboardBtn.addEventListener('click', function() {
     console.log('Refresh button clicked');
     refreshClipboard();
+  });
+
+  // Add clear clipboard button click handler
+  clearClipboardBtn.addEventListener('click', function() {
+    clearClipboard();
   });
   
   // Create a shared clipboard refresh function
@@ -1029,6 +1035,25 @@ document.addEventListener('DOMContentLoaded', function() {
       clipboardContent.style.fontStyle = 'italic';
       clipboardContent.style.color = '#9ca3af';
       clipboardDisplay.style.display = 'block';
+    }
+  }
+  
+  async function clearClipboard() {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        // Write an empty string to clear the clipboard
+        await navigator.clipboard.writeText('');
+        showStatus('Clipboard cleared!');
+        
+        // Refresh the clipboard display to reflect the change
+        setTimeout(() => {
+          refreshClipboard();
+        }, 100);
+      } else {
+        showStatus('Clipboard API not supported', true);
+      }
+    } catch (error) {
+      showStatus('Failed to clear clipboard: ' + error.message, true);
     }
   }
   
