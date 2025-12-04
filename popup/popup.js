@@ -4,7 +4,7 @@
  * Refactored with improved structure following Chrome extension best practices
  */
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   const addDebugBtn = document.getElementById('addDebugBtn');
   const clearFormsBtn = document.getElementById('clearFormsBtn');
   const measureBtn = document.getElementById('measureBtn');
@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const responsiveScreenshotsBtn = document.getElementById('responsiveScreenshotsBtn');
   const resetParamsBtn = document.getElementById('resetParamsBtn');
   const statusDiv = document.getElementById('status');
-  
+
   // Modal elements
   const filenameModal = document.getElementById('filenameModal');
   const closeModal = document.getElementById('closeModal');
@@ -22,41 +22,41 @@ document.addEventListener('DOMContentLoaded', function() {
   const filenameInput = document.getElementById('filenameInput');
   const filenamePreview = document.getElementById('filenamePreview');
   const saveScreenshot = document.getElementById('saveScreenshot');
-  
+
   // Track which type of screenshot is being taken
   let currentScreenshotType = 'viewport'; // 'viewport' or 'fullpage'
-  
+
   // Vulnerability scanner elements
   const scanResultsSection = document.getElementById('scanResultsSection');
   const scanResults = document.getElementById('scanResults');
   const rescanBtn = document.getElementById('rescanBtn');
   const clearResultsBtn = document.getElementById('clearResultsBtn');
-  
+
   // WordPress elements
   const wordpressSection = document.getElementById('wordpressSection');
   const wpDebugBtn = document.getElementById('wpDebugBtn');
   const wpQueryBtn = document.getElementById('wpQueryBtn');
   const wpCacheBtn = document.getElementById('wpCacheBtn');
-  
+
   // User switching elements
   const userSwitchingRow = document.getElementById('userSwitchingRow');
   const wpSwitchAdminBtn = document.getElementById('wpSwitchAdminBtn');
   const wpSwitchEditorBtn = document.getElementById('wpSwitchEditorBtn');
   const wpSwitchOffBtn = document.getElementById('wpSwitchOffBtn');
-  
+
   // WordPress scan elements
   const wpScanBtn = document.getElementById('wpScanBtn');
   const wpScanResultsSection = document.getElementById('wpScanResultsSection');
   const wpScanResults = document.getElementById('wpScanResults');
   const rescanWpBtn = document.getElementById('rescanWpBtn');
   const clearWpResultsBtn = document.getElementById('clearWpResultsBtn');
-  
+
   // Clipboard elements
   const clipboardDisplay = document.getElementById('clipboardDisplay');
   const clipboardContent = document.getElementById('clipboardContent');
   const refreshClipboardBtn = document.getElementById('refreshClipboardBtn');
   const clearClipboardBtn = document.getElementById('clearClipboardBtn');
-  
+
   // Clear Cache elements
   const clearCacheBtn = document.getElementById('clearCacheBtn');
   const clearCookiesBtn = document.getElementById('clearCookiesBtn');
@@ -67,13 +67,13 @@ document.addEventListener('DOMContentLoaded', function() {
   const clearFormDataBtn = document.getElementById('clearFormDataBtn');
   const clearWebSQLBtn = document.getElementById('clearWebSQLBtn');
   const clearAllDataBtn = document.getElementById('clearAllDataBtn');
-  
+
   // Video Recording elements
   const startRecordingBtn = document.getElementById('startRecordingBtn');
   const stopRecordingBtn = document.getElementById('stopRecordingBtn');
   const recordingStatus = document.getElementById('recordingStatus');
   const recordingTime = document.querySelector('.recording-time');
-  
+
   // Recording state
   let mediaRecorder = null;
   let recordedChunks = [];
@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', function() {
   let isPaused = false;
   let pausedTime = 0;
   let currentTabId = null;
-  
+
   // Listen for messages from content script (toolbar buttons)
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'togglePauseRecording') {
@@ -91,50 +91,50 @@ document.addEventListener('DOMContentLoaded', function() {
       sendResponse({ success: true });
       return true;
     }
-    
+
     if (request.action === 'stopRecording') {
       stopRecording();
       sendResponse({ success: true });
       return true;
     }
-    
+
     if (request.action === 'startActualRecording') {
       startActualRecording();
       sendResponse({ success: true });
       return true;
     }
   });
-  
+
   // WordPress detection and initialization
   async function initializeWordPress() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
+
       if (!tab || !tab.url) {
         return;
       }
-      
+
       // Check if it's a restricted page
       if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
         return;
       }
-      
+
       // Check if WordPress
       try {
         const response = await chrome.tabs.sendMessage(tab.id, { action: 'checkWordPress' });
-        
+
         if (response && response.success && response.isWordPress) {
           wordpressSection.style.display = 'block';
-          
+
           // Show user switching row if plugin is detected
           if (response.debugInfo.hasUserSwitching) {
             userSwitchingRow.style.display = 'table-row';
           }
-          
+
           // Update button states based on current URL
           updateWordPressButtonStates(tab.url);
         }
-        
+
         // Always update main debug button state regardless of WordPress
         updateWordPressButtonStates(tab.url);
       } catch (error) {
@@ -144,19 +144,19 @@ document.addEventListener('DOMContentLoaded', function() {
       // Error initializing WordPress
     }
   }
-  
+
   function updateWordPressButtonStates(url) {
     try {
       const urlObj = new URL(url);
       const params = urlObj.searchParams;
-      
+
       // Update button active states based on current URL parameters
       const debugValue = params.get('debug');
       updateButtonState(addDebugBtn, debugValue === '1' || debugValue === 'true');
       updateButtonState(wpDebugBtn, params.has('WP_DEBUG') || params.has('WPDEBUG') || params.has('wp_debug'));
       updateButtonState(wpQueryBtn, params.has('debug_queries') || params.has('query_debug'));
       updateButtonState(wpCacheBtn, params.has('nocache') || params.has('no_cache') || params.has('cache_bust'));
-      
+
       // Update user switching button states
       if (wpSwitchAdminBtn) {
         updateButtonState(wpSwitchAdminBtn, params.get('simulate_user_role') === 'administrator');
@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Error updating button states
     }
   }
-  
+
   function updateButtonState(button, isActive) {
     if (isActive) {
       button.classList.add('active');
@@ -179,31 +179,31 @@ document.addEventListener('DOMContentLoaded', function() {
       button.classList.remove('active');
     }
   }
-  
+
   // Initialize WordPress detection
   initializeWordPress();
-  
+
   // Add refresh button click handler
-  refreshClipboardBtn.addEventListener('click', function() {
+  refreshClipboardBtn.addEventListener('click', function () {
     console.log('Refresh button clicked');
     refreshClipboard();
   });
 
   // Add clear clipboard button click handler
-  clearClipboardBtn.addEventListener('click', function() {
+  clearClipboardBtn.addEventListener('click', function () {
     clearClipboard();
   });
-  
+
   // Create a shared clipboard refresh function
   async function refreshClipboard() {
     console.log('Refreshing clipboard...');
-    
+
     // Always show the clipboard section
     clipboardDisplay.style.display = 'block';
-    
+
     // Show loading state
     updateClipboardDisplay('Reading clipboard...');
-    
+
     try {
       // Try the Clipboard API (works with user interaction)
       if (navigator.clipboard && navigator.clipboard.readText) {
@@ -217,7 +217,7 @@ document.addEventListener('DOMContentLoaded', function() {
       updateClipboardDisplay('Click refresh button to read clipboard');
     }
   }
-  
+
   // Auto-trigger clipboard refresh when popup opens
   // Use setTimeout to ensure DOM is fully loaded and simulate user interaction
   setTimeout(() => {
@@ -227,51 +227,51 @@ document.addEventListener('DOMContentLoaded', function() {
   function showStatus(message, isError = false) {
     statusDiv.textContent = message;
     statusDiv.className = `status-message ${isError ? 'status-error' : 'status-success'}`;
-    
+
     // Hide status after 2 seconds
     setTimeout(() => {
       statusDiv.className = 'status-message status-hidden';
     }, 2000);
   }
-  
+
   // Modal utility functions
   function showModal(screenshotType = 'viewport') {
     currentScreenshotType = screenshotType;
-    
+
     // Generate default filename with appropriate prefix
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
     const prefix = screenshotType === 'fullpage' ? 'fullpage-' : 'viewport-';
     const defaultFilename = `${prefix}${timestamp}`;
-    
+
     filenameInput.value = defaultFilename;
     updateFilenamePreview();
     filenameModal.style.display = 'flex';
     filenameInput.focus();
     filenameInput.select();
   }
-  
+
   function hideModal() {
     filenameModal.style.display = 'none';
     filenameInput.value = '';
   }
-  
+
   function updateFilenamePreview() {
     const filename = filenameInput.value.trim() || 'screenshot';
     filenamePreview.textContent = `${filename}.png`;
   }
-  
+
   function sanitizeFilename(filename) {
     // Remove or replace invalid characters for filenames
     return filename.replace(/[<>:"/\\|?*]/g, '-').replace(/\s+/g, '_');
   }
-  
+
   // Modal event listeners
   closeModal.addEventListener('click', hideModal);
   cancelScreenshot.addEventListener('click', hideModal);
-  
+
   // Update preview when typing
   filenameInput.addEventListener('input', updateFilenamePreview);
-  
+
   // Handle Enter key in filename input
   filenameInput.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
@@ -282,7 +282,7 @@ document.addEventListener('DOMContentLoaded', function() {
       hideModal();
     }
   });
-  
+
   // Close modal when clicking outside
   filenameModal.addEventListener('click', function(e) {
     if (e.target === filenameModal) {
@@ -290,11 +290,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  addDebugBtn.addEventListener('click', async function() {
+  addDebugBtn.addEventListener('click', async function () {
     try {
       // Get the current active tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
+
       if (!tab || !tab.url) {
         showStatus('Unable to get current tab URL', true);
         return;
@@ -302,10 +302,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
       // Parse the current URL
       const currentUrl = new URL(tab.url);
-      
+
       // Get current debug value if it exists
       const currentDebugValue = currentUrl.searchParams.get('debug');
-      
+
       if (currentDebugValue === '1') {
         // Change from ?debug=1 to ?debug=true
         currentUrl.searchParams.set('debug', 'true');
@@ -319,27 +319,27 @@ document.addEventListener('DOMContentLoaded', function() {
         currentUrl.searchParams.set('debug', '1');
         showStatus('Added ?debug=1');
       }
-      
+
       // Update the tab with the new URL
       await chrome.tabs.update(tab.id, { url: currentUrl.toString() });
-      
+
       showStatus('Debug parameter added!');
-      
+
       // Close popup after successful action
       setTimeout(() => {
         window.close();
       }, 1000);
-      
+
     } catch (error) {
       showStatus('Error: ' + error.message, true);
     }
   });
 
-  clearFormsBtn.addEventListener('click', async function() {
+  clearFormsBtn.addEventListener('click', async function () {
     try {
       // Get the current active tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
+
       if (!tab || !tab.url) {
         showStatus('Unable to get current tab', true);
         return;
@@ -347,30 +347,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
       // Send message to content script to clear forms
       const response = await chrome.tabs.sendMessage(tab.id, { action: 'clearForms' });
-      
+
       if (response.success) {
         showStatus(response.message);
       } else {
         showStatus(response.message, true);
       }
-      
+
       // Close popup after successful action
       if (response.success) {
         setTimeout(() => {
           window.close();
         }, 1500);
       }
-      
+
     } catch (error) {
       showStatus('Error: Could not clear forms', true);
     }
   });
 
-  measureBtn.addEventListener('click', async function() {
+  measureBtn.addEventListener('click', async function () {
     try {
       // Get the current active tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
+
       if (!tab || !tab.url) {
         showStatus('Unable to get current tab', true);
         return;
@@ -385,10 +385,10 @@ document.addEventListener('DOMContentLoaded', function() {
       // Send message to content script to toggle measurement
       try {
         const response = await chrome.tabs.sendMessage(tab.id, { action: 'toggleMeasurement' });
-        
+
         if (response && response.success) {
           showStatus(response.message);
-          
+
           // Update button appearance based on state
           if (response.active) {
             measureBtn.style.backgroundColor = '#dcfce7';
@@ -403,27 +403,27 @@ document.addEventListener('DOMContentLoaded', function() {
       } catch (messageError) {
         showStatus('Error: Content script not responding. Try refreshing the page.', true);
       }
-      
+
     } catch (error) {
       showStatus('Error: Could not toggle measurement - ' + error.message, true);
     }
   });
-  
+
   // WordPress button event handlers
-  
+
   // Helper function to add/remove URL parameters
   async function toggleUrlParameter(paramName, paramValue = '1', statusMessage = '') {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
+
       if (!tab || !tab.url) {
         showStatus('Unable to get current tab URL', true);
         return;
       }
-      
+
       const currentUrl = new URL(tab.url);
       const hasParam = currentUrl.searchParams.has(paramName);
-      
+
       if (hasParam) {
         currentUrl.searchParams.delete(paramName);
         showStatus(`${statusMessage} disabled`);
@@ -431,37 +431,37 @@ document.addEventListener('DOMContentLoaded', function() {
         currentUrl.searchParams.set(paramName, paramValue);
         showStatus(`${statusMessage} enabled`);
       }
-      
+
       await chrome.tabs.update(tab.id, { url: currentUrl.toString() });
-      
+
       setTimeout(() => {
         window.close();
       }, 1000);
-      
+
     } catch (error) {
       showStatus('Error: ' + error.message, true);
     }
   }
-  
-  wpDebugBtn.addEventListener('click', async function() {
+
+  wpDebugBtn.addEventListener('click', async function () {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
+
       if (!tab || !tab.url) {
         showStatus('Unable to get current tab URL', true);
         return;
       }
-      
+
       const currentUrl = new URL(tab.url);
       const hasDebug = currentUrl.searchParams.has('WP_DEBUG') || currentUrl.searchParams.has('WPDEBUG') || currentUrl.searchParams.has('wp_debug');
-      
+
       // Remove all debug parameters first
       currentUrl.searchParams.delete('WP_DEBUG');
       currentUrl.searchParams.delete('WPDEBUG');
       currentUrl.searchParams.delete('wp_debug');
       currentUrl.searchParams.delete('WP_DEBUG_LOG');
       currentUrl.searchParams.delete('WP_DEBUG_DISPLAY');
-      
+
       if (!hasDebug) {
         // Add comprehensive WordPress debug parameters
         currentUrl.searchParams.set('WP_DEBUG', '1');
@@ -471,36 +471,36 @@ document.addEventListener('DOMContentLoaded', function() {
       } else {
         showStatus('WordPress debug disabled');
       }
-      
+
       await chrome.tabs.update(tab.id, { url: currentUrl.toString() });
-      
+
       setTimeout(() => {
         window.close();
       }, 1000);
-      
+
     } catch (error) {
       showStatus('Error: ' + error.message, true);
     }
   });
-  
-  wpQueryBtn.addEventListener('click', function() {
+
+  wpQueryBtn.addEventListener('click', function () {
     toggleUrlParameter('debug_queries', '1', 'Query debug');
   });
-  
-  
-  
-  wpCacheBtn.addEventListener('click', async function() {
+
+
+
+  wpCacheBtn.addEventListener('click', async function () {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
+
       if (!tab || !tab.url) {
         showStatus('Unable to get current tab URL', true);
         return;
       }
-      
+
       const currentUrl = new URL(tab.url);
       const hasNoCacheParam = currentUrl.searchParams.has('nocache') || currentUrl.searchParams.has('cache_bust');
-      
+
       if (hasNoCacheParam) {
         // Remove cache busting parameters
         currentUrl.searchParams.delete('nocache');
@@ -514,97 +514,97 @@ document.addEventListener('DOMContentLoaded', function() {
         currentUrl.searchParams.set('nocache', timestamp.toString());
         showStatus('Cache busting enabled');
       }
-      
+
       await chrome.tabs.update(tab.id, { url: currentUrl.toString() });
-      
+
       setTimeout(() => {
         window.close();
       }, 1000);
-      
+
     } catch (error) {
       showStatus('Error: ' + error.message, true);
     }
   });
-  
-  
+
+
   // User switching functionality (simulates user roles for testing)
-  wpSwitchAdminBtn.addEventListener('click', function() {
+  wpSwitchAdminBtn.addEventListener('click', function () {
     toggleUrlParameter('simulate_user_role', 'administrator', 'Admin role simulation');
   });
-  
-  wpSwitchEditorBtn.addEventListener('click', function() {
+
+  wpSwitchEditorBtn.addEventListener('click', function () {
     toggleUrlParameter('simulate_user_role', 'editor', 'Editor role simulation');
   });
-  
-  wpSwitchOffBtn.addEventListener('click', async function() {
+
+  wpSwitchOffBtn.addEventListener('click', async function () {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
+
       if (!tab || !tab.url) {
         showStatus('Unable to get current tab URL', true);
         return;
       }
-      
+
       const currentUrl = new URL(tab.url);
-      
+
       // Remove all user switching parameters
       currentUrl.searchParams.delete('simulate_user_role');
       currentUrl.searchParams.delete('user_switching');
       currentUrl.searchParams.delete('switch_to');
-      
+
       showStatus('User switching disabled');
-      
+
       await chrome.tabs.update(tab.id, { url: currentUrl.toString() });
-      
+
       setTimeout(() => {
         window.close();
       }, 1000);
-      
+
     } catch (error) {
       showStatus('Error: ' + error.message, true);
     }
   });
-  
+
   // Vulnerability scanner functionality
   async function performVulnerabilityScan() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
+
       if (!tab || !tab.url) {
         showStatus('Unable to get current tab', true);
         return;
       }
-      
+
       // Check if it's a restricted page
       if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
         showStatus('Cannot scan this page', true);
         return;
       }
-      
+
       showStatus('Scanning for vulnerabilities...');
-      
+
       // Send message to content script to perform scan
       const response = await chrome.tabs.sendMessage(tab.id, { action: 'scanVulnerabilities' });
-      
+
       if (response && response.success) {
         displayScanResults(response.vulnerabilities, response.summary);
         showStatus(`Scan complete: ${response.summary.issues} issues, ${response.summary.passed} passed`);
       } else {
         showStatus(response ? response.message : 'Scan failed', true);
       }
-      
+
     } catch (error) {
       showStatus('Error: Content script not responding. Try refreshing the page.', true);
     }
   }
-  
+
   function displayScanResults(results, summary) {
     // Show the results section
     scanResultsSection.style.display = 'block';
-    
+
     // Clear previous results
     scanResults.innerHTML = '';
-    
+
     // Add summary
     const summaryDiv = document.createElement('div');
     summaryDiv.className = 'scan-summary';
@@ -615,21 +615,21 @@ document.addEventListener('DOMContentLoaded', function() {
       ${summary.issues > 0 ? ` • <span style="color: #ef4444;">⚠ ${summary.issues} issues</span>` : ''}
     `;
     scanResults.appendChild(summaryDiv);
-    
+
     // Group results by severity for better organization
     const severityOrder = ['pass', 'info', 'low', 'medium', 'high', 'critical'];
     const groupedResults = {};
-    
+
     // Initialize groups
     severityOrder.forEach(severity => {
       groupedResults[severity] = results.filter(r => r.severity === severity);
     });
-    
+
     // Display results in order
     severityOrder.forEach(severity => {
       const items = groupedResults[severity];
       if (items.length === 0) return;
-      
+
       items.forEach(result => {
         const resultDiv = document.createElement('div');
         resultDiv.className = `vulnerability-item ${result.severity}`;
@@ -641,52 +641,52 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
   }
-  
+
   function clearScanResults() {
     scanResultsSection.style.display = 'none';
     scanResults.innerHTML = '';
   }
-  
+
   // WordPress scan functionality
   async function performWordPressScan() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
+
       if (!tab || !tab.url) {
         showStatus('Unable to get current tab', true);
         return;
       }
-      
+
       // Check if it's a restricted page
       if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
         showStatus('Cannot scan this page', true);
         return;
       }
-      
+
       showStatus('Scanning WordPress site...');
-      
+
       // Send message to content script to perform WordPress scan
       const response = await chrome.tabs.sendMessage(tab.id, { action: 'scanWordPress' });
-      
+
       if (response && response.success) {
         displayWordPressScanResults(response.scanData, response.summary);
         showStatus(`WordPress scan complete: Found ${response.summary.pluginsCount} plugins`);
       } else {
         showStatus(response ? response.message : 'WordPress scan failed', true);
       }
-      
+
     } catch (error) {
       showStatus('Error: Content script not responding. Try refreshing the page.', true);
     }
   }
-  
+
   function displayWordPressScanResults(scanData, summary) {
     // Show the results section
     wpScanResultsSection.style.display = 'block';
-    
+
     // Clear previous results
     wpScanResults.innerHTML = '';
-    
+
     // Add WordPress version and theme
     const headerDiv = document.createElement('div');
     headerDiv.className = 'wp-scan-header';
@@ -704,17 +704,17 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
     `;
     wpScanResults.appendChild(headerDiv);
-    
+
     // Add plugins section
     if (scanData.plugins.length > 0) {
       const pluginsHeader = document.createElement('div');
       pluginsHeader.className = 'wp-scan-section-title';
       pluginsHeader.innerHTML = `<strong>Plugins (${scanData.plugins.length}):</strong>`;
       wpScanResults.appendChild(pluginsHeader);
-      
+
       const pluginsList = document.createElement('div');
       pluginsList.className = 'wp-plugins-list';
-      
+
       scanData.plugins.forEach(plugin => {
         const pluginDiv = document.createElement('div');
         pluginDiv.className = 'wp-plugin-item';
@@ -725,7 +725,7 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         pluginsList.appendChild(pluginDiv);
       });
-      
+
       wpScanResults.appendChild(pluginsList);
     } else {
       const noPlugins = document.createElement('div');
@@ -733,7 +733,7 @@ document.addEventListener('DOMContentLoaded', function() {
       noPlugins.innerHTML = '<strong>Plugins:</strong> None detected';
       wpScanResults.appendChild(noPlugins);
     }
-    
+
     // Add WordPress URLs section
     const urlsDiv = document.createElement('div');
     urlsDiv.className = 'wp-urls-section';
@@ -746,168 +746,168 @@ document.addEventListener('DOMContentLoaded', function() {
     `;
     wpScanResults.appendChild(urlsDiv);
   }
-  
+
   function clearWordPressScanResults() {
     wpScanResultsSection.style.display = 'none';
     wpScanResults.innerHTML = '';
   }
-  
+
   // Screenshot functionality - show modal instead of taking screenshot directly
-  screenshotBtn.addEventListener('click', function() {
+  screenshotBtn.addEventListener('click', function () {
     showModal('viewport');
   });
-  
-  fullPageScreenshotBtn.addEventListener('click', function() {
+
+  fullPageScreenshotBtn.addEventListener('click', function () {
     showModal('fullpage');
   });
-  
-  responsiveScreenshotsBtn.addEventListener('click', function() {
+
+  responsiveScreenshotsBtn.addEventListener('click', function () {
     takeResponsiveScreenshots();
   });
-  
+
   // Unified screenshot save function
-  saveScreenshot.addEventListener('click', async function() {
+  saveScreenshot.addEventListener('click', async function () {
     const filename = sanitizeFilename(filenameInput.value.trim() || 'screenshot');
     hideModal();
-    
+
     try {
       // Get the current active tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
+
       if (!tab || !tab.url) {
         showStatus('Unable to get current tab', true);
         return;
       }
-      
+
       // Check if it's a restricted page
       if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
         showStatus('Cannot screenshot this page', true);
         return;
       }
-      
+
       if (currentScreenshotType === 'viewport') {
         // Take viewport screenshot
         showStatus('Taking screenshot...');
-        
+
         const dataUrl = await chrome.tabs.captureVisibleTab(null, {
           format: 'png',
           quality: 100
         });
-        
+
         await chrome.downloads.download({
           url: dataUrl,
           filename: `${filename}.png`,
           saveAs: false
         });
-        
+
         showStatus('Screenshot saved to Downloads!');
       } else {
         // Take full page screenshot
         showStatus('Taking full page screenshot...');
-        
+
         try {
           // Send message to content script to prepare for full page capture
           const response = await chrome.tabs.sendMessage(tab.id, { action: 'prepareFullPageScreenshot' });
-          
+
           if (!response || !response.success) {
             showStatus('Error: Could not prepare page for screenshot', true);
             return;
           }
-          
+
           const { totalHeight, viewportHeight, scrollSteps } = response;
           const screenshots = [];
-          
+
           // Take screenshots for each scroll position
           for (let i = 0; i < scrollSteps.length; i++) {
             const scrollY = scrollSteps[i];
-            
+
             // Scroll to position
-            await chrome.tabs.sendMessage(tab.id, { 
-              action: 'scrollToPosition', 
-              scrollY: scrollY 
+            await chrome.tabs.sendMessage(tab.id, {
+              action: 'scrollToPosition',
+              scrollY: scrollY
             });
-            
+
             // Wait for scroll to complete
             await new Promise(resolve => setTimeout(resolve, 300));
-            
+
             // Capture screenshot
             const dataUrl = await chrome.tabs.captureVisibleTab(null, {
               format: 'png',
               quality: 100
             });
-            
+
             screenshots.push({
               dataUrl,
               scrollY,
               isLast: i === scrollSteps.length - 1
             });
-            
+
             showStatus(`Capturing... ${i + 1}/${scrollSteps.length}`);
           }
-          
+
           // Restore original scroll position
           await chrome.tabs.sendMessage(tab.id, { action: 'restoreScrollPosition' });
-          
+
           // Stitch screenshots together
           const stitchedDataUrl = await stitchScreenshots(screenshots, viewportHeight, totalHeight);
-          
+
           // Download the screenshot with custom filename
           await chrome.downloads.download({
             url: stitchedDataUrl,
             filename: `${filename}.png`,
             saveAs: false
           });
-          
+
           showStatus('Full page screenshot saved!');
-          
+
         } catch (messageError) {
           showStatus('Error: Content script not responding. Try refreshing the page.', true);
           return;
         }
       }
-      
+
       // Close popup after successful action
       setTimeout(() => {
         window.close();
       }, 1500);
-      
+
     } catch (error) {
       showStatus(`Error: Could not take screenshot - ${error.message}`, true);
     }
   });
-  
+
   // Function to stitch multiple screenshots together
   async function stitchScreenshots(screenshots, viewportHeight, totalHeight) {
     return new Promise((resolve) => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      
+
       // Set canvas dimensions
       canvas.width = screenshots[0] ? 1920 : 1920; // Default width, will be adjusted
       canvas.height = totalHeight;
-      
+
       let loadedCount = 0;
       const images = [];
-      
+
       // Load all images
       screenshots.forEach((screenshot, index) => {
         const img = new Image();
         img.onload = () => {
           images[index] = img;
           loadedCount++;
-          
+
           // Set canvas width based on first image
           if (index === 0) {
             canvas.width = img.width;
           }
-          
+
           // When all images are loaded, draw them
           if (loadedCount === screenshots.length) {
             // Draw screenshots with proper positioning
             screenshots.forEach((screenshot, i) => {
               const img = images[i];
               const y = screenshot.scrollY;
-              
+
               // Handle potential overlap for last screenshot
               if (screenshot.isLast && totalHeight < y + viewportHeight) {
                 const cropHeight = totalHeight - y;
@@ -916,7 +916,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 ctx.drawImage(img, 0, y);
               }
             });
-            
+
             // Convert to data URL
             const dataUrl = canvas.toDataURL('image/png', 1.0);
             resolve(dataUrl);
@@ -926,74 +926,74 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
   }
-  
+
   // Event listeners for vulnerability scanner
   scanBtn.addEventListener('click', performVulnerabilityScan);
-  
+
   rescanBtn.addEventListener('click', performVulnerabilityScan);
-  
-  clearResultsBtn.addEventListener('click', function() {
+
+  clearResultsBtn.addEventListener('click', function () {
     clearScanResults();
     showStatus('Scan results cleared');
   });
-  
+
   // WordPress scan event listeners
   wpScanBtn.addEventListener('click', performWordPressScan);
-  
+
   rescanWpBtn.addEventListener('click', performWordPressScan);
-  
-  clearWpResultsBtn.addEventListener('click', function() {
+
+  clearWpResultsBtn.addEventListener('click', function () {
     clearWordPressScanResults();
     showStatus('WordPress scan results cleared');
   });
-  
+
   // Reset Query Parameters functionality
-  resetParamsBtn.addEventListener('click', async function() {
+  resetParamsBtn.addEventListener('click', async function () {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
+
       if (!tab || !tab.url) {
         showStatus('Unable to get current tab URL', true);
         return;
       }
-      
+
       // Check if it's a restricted page
       if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
         showStatus('Cannot modify this page', true);
         return;
       }
-      
+
       const currentUrl = new URL(tab.url);
-      
+
       // List of all parameters that this extension can add
       const extensionParams = [
         // Debug parameters
         'debug',
-        
+
         // WordPress debug parameters
         'WP_DEBUG',
-        'WPDEBUG', 
+        'WPDEBUG',
         'wp_debug',
         'WP_DEBUG_LOG',
         'WP_DEBUG_DISPLAY',
         'debug_queries',
         'query_debug',
-        
+
         // Cache parameters
         'nocache',
         'cache_bust',
         'no_cache',
         'v',
         '_',
-        
+
         // User switching parameters
         'simulate_user_role',
         'user_switching',
         'switch_to'
       ];
-      
+
       let removedCount = 0;
-      
+
       // Remove all extension-added parameters
       extensionParams.forEach(param => {
         if (currentUrl.searchParams.has(param)) {
@@ -1001,28 +1001,28 @@ document.addEventListener('DOMContentLoaded', function() {
           removedCount++;
         }
       });
-      
+
       if (removedCount === 0) {
         showStatus('No extension parameters found to remove');
         return;
       }
-      
+
       // Update the tab with the cleaned URL
       await chrome.tabs.update(tab.id, { url: currentUrl.toString() });
-      
+
       showStatus(`Removed ${removedCount} parameter${removedCount !== 1 ? 's' : ''}`);
-      
+
       // Close popup after successful action
       setTimeout(() => {
         window.close();
       }, 1000);
-      
+
     } catch (error) {
       showStatus('Error: ' + error.message, true);
     }
   });
-  
-  
+
+
   function updateClipboardDisplay(text) {
     if (text && text.trim()) {
       clipboardContent.textContent = text.trim();
@@ -1037,14 +1037,14 @@ document.addEventListener('DOMContentLoaded', function() {
       clipboardDisplay.style.display = 'block';
     }
   }
-  
+
   async function clearClipboard() {
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         // Write an empty string to clear the clipboard
         await navigator.clipboard.writeText('');
         showStatus('Clipboard cleared!');
-        
+
         // Refresh the clipboard display to reflect the change
         setTimeout(() => {
           refreshClipboard();
@@ -1056,9 +1056,9 @@ document.addEventListener('DOMContentLoaded', function() {
       showStatus('Failed to clear clipboard: ' + error.message, true);
     }
   }
-  
+
   // Clear Cache functionality
-  
+
   // Helper function to get current tab origin for clearing site-specific data
   async function getCurrentOrigin() {
     try {
@@ -1072,28 +1072,28 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     return null;
   }
-  
+
   // Clear browser cache
-  clearCacheBtn.addEventListener('click', async function() {
+  clearCacheBtn.addEventListener('click', async function () {
     const btn = clearCacheBtn;
     const originalContent = btn.innerHTML;
-    
+
     try {
       // Show loading state
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
-      
+
       const origin = await getCurrentOrigin();
-      
+
       if (origin) {
         await chrome.browsingData.removeCache({
           origins: [origin]
         });
-        
+
         // Show success state
         btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
         showStatus('Cache cleared successfully!');
-        
+
         // Reset button after delay
         setTimeout(() => {
           btn.innerHTML = originalContent;
@@ -1110,26 +1110,26 @@ document.addEventListener('DOMContentLoaded', function() {
       showStatus('Error clearing cache: ' + error.message, true);
     }
   });
-  
+
   // Clear cookies
-  clearCookiesBtn.addEventListener('click', async function() {
+  clearCookiesBtn.addEventListener('click', async function () {
     const btn = clearCookiesBtn;
     const originalContent = btn.innerHTML;
-    
+
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
-      
+
       const origin = await getCurrentOrigin();
-      
+
       if (origin) {
         await chrome.browsingData.removeCookies({
           origins: [origin]
         });
-        
+
         btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
         showStatus('Cookies cleared successfully!');
-        
+
         setTimeout(() => {
           btn.innerHTML = originalContent;
           btn.disabled = false;
@@ -1145,26 +1145,26 @@ document.addEventListener('DOMContentLoaded', function() {
       showStatus('Error clearing cookies: ' + error.message, true);
     }
   });
-  
+
   // Clear local storage
-  clearLocalStorageBtn.addEventListener('click', async function() {
+  clearLocalStorageBtn.addEventListener('click', async function () {
     const btn = clearLocalStorageBtn;
     const originalContent = btn.innerHTML;
-    
+
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
-      
+
       const origin = await getCurrentOrigin();
-      
+
       if (origin) {
         await chrome.browsingData.removeLocalStorage({
           origins: [origin]
         });
-        
+
         btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
         showStatus('Local storage cleared successfully!');
-        
+
         setTimeout(() => {
           btn.innerHTML = originalContent;
           btn.disabled = false;
@@ -1180,28 +1180,28 @@ document.addEventListener('DOMContentLoaded', function() {
       showStatus('Error clearing local storage: ' + error.message, true);
     }
   });
-  
+
   // Clear IndexedDB
-  clearIndexedDBBtn.addEventListener('click', async function() {
+  clearIndexedDBBtn.addEventListener('click', async function () {
     const btn = clearIndexedDBBtn;
     const originalContent = btn.innerHTML;
-    
+
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
-      
+
       const origin = await getCurrentOrigin();
-      
+
       if (origin) {
         await chrome.browsingData.remove({
           origins: [origin]
         }, {
           indexedDB: true
         });
-        
+
         btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
         showStatus('IndexedDB cleared successfully!');
-        
+
         setTimeout(() => {
           btn.innerHTML = originalContent;
           btn.disabled = false;
@@ -1217,26 +1217,26 @@ document.addEventListener('DOMContentLoaded', function() {
       showStatus('Error clearing IndexedDB: ' + error.message, true);
     }
   });
-  
+
   // Clear Service Workers
-  clearServiceWorkersBtn.addEventListener('click', async function() {
+  clearServiceWorkersBtn.addEventListener('click', async function () {
     const btn = clearServiceWorkersBtn;
     const originalContent = btn.innerHTML;
-    
+
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
-      
+
       const origin = await getCurrentOrigin();
-      
+
       if (origin) {
         await chrome.browsingData.removeServiceWorkers({
           origins: [origin]
         });
-        
+
         btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
         showStatus('Service workers cleared successfully!');
-        
+
         setTimeout(() => {
           btn.innerHTML = originalContent;
           btn.disabled = false;
@@ -1252,28 +1252,28 @@ document.addEventListener('DOMContentLoaded', function() {
       showStatus('Error clearing service workers: ' + error.message, true);
     }
   });
-  
+
   // Clear Cache Storage (CacheStorage API)
-  clearCacheStorageBtn.addEventListener('click', async function() {
+  clearCacheStorageBtn.addEventListener('click', async function () {
     const btn = clearCacheStorageBtn;
     const originalContent = btn.innerHTML;
-    
+
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
-      
+
       const origin = await getCurrentOrigin();
-      
+
       if (origin) {
         await chrome.browsingData.remove({
           origins: [origin]
         }, {
           cacheStorage: true
         });
-        
+
         btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
         showStatus('Cache storage cleared successfully!');
-        
+
         setTimeout(() => {
           btn.innerHTML = originalContent;
           btn.disabled = false;
@@ -1289,26 +1289,26 @@ document.addEventListener('DOMContentLoaded', function() {
       showStatus('Error clearing cache storage: ' + error.message, true);
     }
   });
-  
+
   // Clear Form Data (autofill)
-  clearFormDataBtn.addEventListener('click', async function() {
+  clearFormDataBtn.addEventListener('click', async function () {
     const btn = clearFormDataBtn;
     const originalContent = btn.innerHTML;
-    
+
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
-      
+
       const origin = await getCurrentOrigin();
-      
+
       if (origin) {
         await chrome.browsingData.removeFormData({
           origins: [origin]
         });
-        
+
         btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
         showStatus('Form data cleared successfully!');
-        
+
         setTimeout(() => {
           btn.innerHTML = originalContent;
           btn.disabled = false;
@@ -1324,28 +1324,28 @@ document.addEventListener('DOMContentLoaded', function() {
       showStatus('Error clearing form data: ' + error.message, true);
     }
   });
-  
+
   // Clear Web SQL
-  clearWebSQLBtn.addEventListener('click', async function() {
+  clearWebSQLBtn.addEventListener('click', async function () {
     const btn = clearWebSQLBtn;
     const originalContent = btn.innerHTML;
-    
+
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
-      
+
       const origin = await getCurrentOrigin();
-      
+
       if (origin) {
         await chrome.browsingData.remove({
           origins: [origin]
         }, {
           webSQL: true
         });
-        
+
         btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
         showStatus('Web SQL cleared successfully!');
-        
+
         setTimeout(() => {
           btn.innerHTML = originalContent;
           btn.disabled = false;
@@ -1361,18 +1361,18 @@ document.addEventListener('DOMContentLoaded', function() {
       showStatus('Error clearing Web SQL: ' + error.message, true);
     }
   });
-  
+
   // Clear all site data
-  clearAllDataBtn.addEventListener('click', async function() {
+  clearAllDataBtn.addEventListener('click', async function () {
     const btn = clearAllDataBtn;
     const originalContent = btn.innerHTML;
-    
+
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
-      
+
       const origin = await getCurrentOrigin();
-      
+
       if (origin) {
         // Add minimum delay to ensure loading state is visible
         const clearPromise = chrome.browsingData.remove({
@@ -1387,15 +1387,15 @@ document.addEventListener('DOMContentLoaded', function() {
           formData: true,
           webSQL: true
         });
-        
+
         const delayPromise = new Promise(resolve => setTimeout(resolve, 500));
-        
+
         // Wait for both clearing and minimum delay
         await Promise.all([clearPromise, delayPromise]);
-        
+
         btn.innerHTML = '<span class="wp-button-label">✓ All Cleared!</span>';
         showStatus('All site data cleared! Reloading...');
-        
+
         // Close popup and reload the tab after clearing all data
         setTimeout(async () => {
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -1415,93 +1415,93 @@ document.addEventListener('DOMContentLoaded', function() {
       showStatus('Error clearing all data: ' + error.message, true);
     }
   });
-  
-// Video Recording functionality
+
+  // Video Recording functionality
 
   // Constants for recording time limits
   const MAX_RECORDING_TIME = 180; // 3 minutes in seconds  
   const WARNING_TIME_30S = 150; // 30 seconds before max 
   const WARNING_TIME_10S = 170; // 10 seconds before max
-  
+
   // Format time as MM:SS
   function formatTime(seconds) {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   }
-  
+
   // Update recording timer
   function updateRecordingTimer() {
     if (recordingStartTime) {
       const elapsed = Math.floor((Date.now() - recordingStartTime - pausedTime) / 1000);
       const timeString = formatTime(elapsed);
       recordingTime.textContent = timeString;
-      
+
       // Check if approaching time limits
       let warningLevel = 'none';
       let remainingTime = MAX_RECORDING_TIME - elapsed;
-      
+
       if (elapsed >= WARNING_TIME_10S) {
         warningLevel = 'critical';
       } else if (elapsed >= WARNING_TIME_30S) {
         warningLevel = 'warning';
       }
-      
+
       // Update toolbar on page with time details
       if (currentTabId) {
-        chrome.tabs.sendMessage(currentTabId, { 
-          action: 'updateRecordingTime', 
+        chrome.tabs.sendMessage(currentTabId, {
+          action: 'updateRecordingTime',
           time: timeString,
           elapsed: elapsed,
           remaining: remainingTime,
           warningLevel: warningLevel
-        }).catch(() => {});
+        }).catch(() => { });
       }
-      
+
       // Automatically stop when limit is reached
       if (elapsed >= MAX_RECORDING_TIME) {
         console.log('Maximum recording time reached, stopping recording');
-        
+
         // Show notification about time limit reached
         if (currentTabId) {
-          chrome.tabs.sendMessage(currentTabId, { 
-            action: 'showNotification', 
+          chrome.tabs.sendMessage(currentTabId, {
+            action: 'showNotification',
             message: 'Recording stopped: maximum time of 3 minutes reached'
-          }).catch(() => {});
+          }).catch(() => { });
         }
-        
+
         stopRecording();
         return;
       }
     }
   }
-  
+
   // Start recording
-  startRecordingBtn.addEventListener('click', async function() {
+  startRecordingBtn.addEventListener('click', async function () {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
+
       if (!tab || !tab.url) {
         showStatus('Unable to get current tab', true);
         return;
       }
-      
+
       currentTabId = tab.id;
-      
+
       // Check if it's a restricted page
       if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
         showStatus('Cannot record this page', true);
         return;
       }
-      
+
       // Close popup immediately when user clicks Start Recording
       setTimeout(() => {
         window.close();
       }, 200);
-      
+
       // Show recording toolbar on the page (without starting recording immediately)
       console.log('Showing recording toolbar without recording...');
-      
+
       // Try multiple attempts with delays to ensure the page is ready
       const tryShowToolbar = (attempt = 1, maxAttempts = 3) => {
         chrome.tabs.sendMessage(currentTabId, { action: 'showRecordingToolbar', mode: 'ready' })
@@ -1522,18 +1522,18 @@ document.addEventListener('DOMContentLoaded', function() {
             }
           });
       };
-      
+
       // First attempt with no delay
       tryShowToolbar();
-      
+
       // Store tabId but don't start recording yet
       // The user must click play button in the toolbar to start recording
-      
+
     } catch (error) {
       showStatus('Error: ' + error.message, true);
     }
   });
-  
+
   // New function to actually start recording when user clicks play
   async function startActualRecording() {
     try {
@@ -1541,7 +1541,7 @@ document.addEventListener('DOMContentLoaded', function() {
         showStatus('No active tab for recording', true);
         return;
       }
-      
+
       // Request tab capture
       console.log('Requesting tab capture for actual recording...');
       chrome.tabCapture.capture({
@@ -1562,55 +1562,55 @@ document.addEventListener('DOMContentLoaded', function() {
           showStatus('Error: ' + chrome.runtime.lastError.message, true);
           return;
         }
-        
+
         if (!stream) {
           console.error('No stream received');
           showStatus('Failed to capture tab', true);
           return;
         }
-        
+
         console.log('Stream received:', stream);
-        
+
         // Create media recorder
         try {
           recordedChunks = [];
           isPaused = false;
           pausedTime = 0;
-          
+
           const options = { mimeType: 'video/webm;codecs=vp9' };
-          
+
           // Fallback to vp8 if vp9 is not supported
           if (!MediaRecorder.isTypeSupported(options.mimeType)) {
             console.log('VP9 not supported, falling back to VP8');
             options.mimeType = 'video/webm;codecs=vp8';
           }
-          
+
           console.log('Creating MediaRecorder with options:', options);
           mediaRecorder = new MediaRecorder(stream, options);
           console.log('MediaRecorder created successfully');
-          
+
           mediaRecorder.ondataavailable = (event) => {
             if (event.data && event.data.size > 0) {
               recordedChunks.push(event.data);
               console.log('Data chunk received:', event.data.size, 'bytes. Total chunks:', recordedChunks.length);
             }
           };
-          
+
           mediaRecorder.onstop = async () => {
             console.log('MediaRecorder stopped. Total chunks:', recordedChunks.length);
             // Stop all tracks
             stream.getTracks().forEach(track => track.stop());
-            
+
             // Create blob from recorded chunks
             const blob = new Blob(recordedChunks, { type: 'video/webm' });
-            
+
             // Generate filename
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
             const filename = `recording-${timestamp}.webm`;
-            
+
             // Create download URL
             const url = URL.createObjectURL(blob);
-            
+
             // Download the video
             try {
               await chrome.downloads.download({
@@ -1618,45 +1618,45 @@ document.addEventListener('DOMContentLoaded', function() {
                 filename: filename,
                 saveAs: true
               });
-              
+
               showStatus('Recording saved!');
             } catch (error) {
               showStatus('Error saving recording: ' + error.message, true);
             } finally {
               URL.revokeObjectURL(url);
             }
-            
+
             // Hide toolbar
             if (currentTabId) {
-              chrome.tabs.sendMessage(currentTabId, { 
-                action: 'hideRecordingToolbar' 
-              }).catch(() => {});
+              chrome.tabs.sendMessage(currentTabId, {
+                action: 'hideRecordingToolbar'
+              }).catch(() => { });
             }
-            
+
             // Reset UI
             recordingStatus.style.display = 'none';
             startRecordingBtn.disabled = false;
             stopRecordingBtn.disabled = true;
             stopRecordingBtn.style.opacity = '0.5';
-            
+
             // Clear interval
             if (recordingInterval) {
               clearInterval(recordingInterval);
               recordingInterval = null;
             }
-            
+
             recordedChunks = [];
             mediaRecorder = null;
             isPaused = false;
             pausedTime = 0;
             currentTabId = null;
           };
-          
+
           // Start recording
           console.log('Starting MediaRecorder...');
           mediaRecorder.start(100); // Collect data every 100ms
           console.log('MediaRecorder state:', mediaRecorder.state);
-          
+
           // Update UI
           recordingStartTime = Date.now();
           recordingTime.textContent = '00:00';
@@ -1664,78 +1664,78 @@ document.addEventListener('DOMContentLoaded', function() {
           startRecordingBtn.disabled = true;
           stopRecordingBtn.disabled = false;
           stopRecordingBtn.style.opacity = '1';
-          
+
           // Update toolbar state to recording
           chrome.tabs.sendMessage(currentTabId, { action: 'updateRecordingState', state: 'recording' })
-            .catch(() => {});
-          
+            .catch(() => { });
+
           // Start timer
           recordingInterval = setInterval(() => {
             if (!isPaused) {
               updateRecordingTimer();
             }
           }, 1000);
-          
+
           showStatus('Recording started');
           console.log('Recording setup complete');
-          
-    } catch (error) {
-      showStatus('Error starting recording: ' + error.message, true);
-      stream.getTracks().forEach(track => track.stop());
-    }
-  });
-  
+
+        } catch (error) {
+          showStatus('Error starting recording: ' + error.message, true);
+          stream.getTracks().forEach(track => track.stop());
+        }
+      });
+
     } catch (error) {
       showStatus('Error: ' + error.message, true);
     }
   }
-  
+
   // Toggle pause/resume recording
   function togglePauseRecording() {
     if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
-    
+
     if (mediaRecorder.state === 'recording') {
       // Pause
       mediaRecorder.pause();
       isPaused = true;
       const pauseStartTime = Date.now();
-      
+
       // Update toolbar UI
       if (currentTabId) {
-        chrome.tabs.sendMessage(currentTabId, { 
-          action: 'updateRecordingState', 
-          state: 'paused' 
-        }).catch(() => {});
+        chrome.tabs.sendMessage(currentTabId, {
+          action: 'updateRecordingState',
+          state: 'paused'
+        }).catch(() => { });
       }
-      
+
       showStatus('Recording paused');
-      
+
       // Store when pause started for accurate time tracking
       window.pauseStartTime = pauseStartTime;
-      
+
     } else if (mediaRecorder.state === 'paused') {
       // Resume
       mediaRecorder.resume();
       isPaused = false;
-      
+
       // Add the paused duration to total paused time
       if (window.pauseStartTime) {
         pausedTime += Date.now() - window.pauseStartTime;
         delete window.pauseStartTime;
       }
-      
+
       // Update toolbar UI
       if (currentTabId) {
-        chrome.tabs.sendMessage(currentTabId, { 
-          action: 'updateRecordingState', 
-          state: 'recording' 
-        }).catch(() => {});
+        chrome.tabs.sendMessage(currentTabId, {
+          action: 'updateRecordingState',
+          state: 'recording'
+        }).catch(() => { });
       }
-      
+
       showStatus('Recording resumed');
     }
   }
-  
+
   // Stop recording function
   function stopRecording() {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
@@ -1743,7 +1743,7 @@ document.addEventListener('DOMContentLoaded', function() {
       showStatus('Stopping recording...');
     }
   }
-  
+
   // Stop recording
   stopRecordingBtn.addEventListener('click', stopRecording);
 
@@ -1771,7 +1771,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const sizes = [
         { width: 1890, height: 1200, label: 'desktop' },
         { width: 1024, height: 1200, label: 'tablet' },
-        { width: 390,  height: 1200, label: 'mobile' },
+        { width: 390, height: 1200, label: 'mobile' },
       ];
 
       const pngs = [];
@@ -1781,7 +1781,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const pagePath = urlObj.pathname.replace(/[^a-zA-Z0-9]/g, '-').replace(/^-|-$/g, '') || 'home';
       const today = new Date();
       const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-      
+
       const zipName = `${domain}-${pagePath}-${dateStr}.zip`;
 
       for (let i = 0; i < sizes.length; i++) {
@@ -1802,13 +1802,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Wait for tab to finish loading
         await waitForTabComplete(createdTabId);
-        
+
         // Additional wait to ensure page is fully rendered
         await new Promise(r => setTimeout(r, 1000));
-        
+
         // Focus the window to make sure it's active
         await chrome.windows.update(createdWinId, { focused: true });
-        
+
         // Another small delay after focusing
         await new Promise(r => setTimeout(r, 500));
 
@@ -1825,17 +1825,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
         for (let idx = 0; idx < scrollSteps.length; idx++) {
           const y = scrollSteps[idx];
-          console.log(`Capturing part ${idx+1}/${scrollSteps.length} at y=${y}`);
+          console.log(`Capturing part ${idx + 1}/${scrollSteps.length} at y=${y}`);
           await chrome.tabs.sendMessage(createdTabId, { action: 'scrollToPosition', scrollY: y }).catch(() => ({}));
           await new Promise(r => setTimeout(r, 1000)); // Longer wait
-          
+
           // Try capturing the tab
           let dataUrl;
           try {
             dataUrl = await chrome.tabs.captureVisibleTab(createdWinId, { format: 'png', quality: 100 });
-            console.log(`Captured section ${idx+1}, data URL length:`, dataUrl.length);
+            console.log(`Captured section ${idx + 1}, data URL length:`, dataUrl.length);
           } catch (error) {
-            console.error(`Error capturing section ${idx+1}:`, error);
+            console.error(`Error capturing section ${idx + 1}:`, error);
             // Try without window ID
             try {
               dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png', quality: 100 });
@@ -1848,7 +1848,7 @@ document.addEventListener('DOMContentLoaded', function() {
               return;
             }
           }
-          
+
           screenshots.push({ dataUrl, scrollY: y, isLast: idx === scrollSteps.length - 1 });
           showStatus(`Capturing ${s.label} ${idx + 1}/${scrollSteps.length}`);
         }

@@ -40,17 +40,21 @@
               <button id="clearFormsBtn" class="wp-button clear-button">
                 <span class="wp-button-label">Clear Forms</span>
               </button>
-          </table>
-          <tr>
+            </td>
             <td class="wp-button-cell">
               <button id="measureBtn" class="wp-button measure-button">
                 <span class="wp-button-label">Measure</span>
               </button>
             </td>
+          </tr>
+          <tr>
             <td class="wp-button-cell">
               <button id="scanBtn" class="wp-button scan-button">
                 <span class="wp-button-label">Scan</span>
               </button>
+            </td>
+            <td class="wp-button-cell">
+              <!-- Empty cell for layout -->
             </td>
             <td class="wp-button-cell">
               <!-- Empty cell for layout -->
@@ -254,6 +258,39 @@
         </div>
       </div>
 
+      <!-- Screenshots Section -->
+      <div class="screenshots-section">
+        <div class="section-header">
+          <svg class="section-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+          <span class="section-title">Screenshots</span>
+        </div>
+
+        <div class="wp-button-grid">
+          <table class="wp-button-table">
+            <tr>
+              <td class="wp-button-cell">
+                <button id="screenshotBtn" class="wp-button screenshot-button">
+                  <span class="wp-button-label">Viewport</span>
+                </button>
+              </td>
+              <td class="wp-button-cell">
+                <button id="fullPageScreenshotBtn" class="wp-button fullpage-button">
+                  <span class="wp-button-label">Full Page</span>
+                </button>
+              </td>
+              <td class="wp-button-cell">
+                <button id="responsiveScreenshotsBtn" class="wp-button responsive-button">
+                  <span class="wp-button-label">3 Responsive States</span>
+                </button>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+      
       <!-- Clipboard Section -->
       <div class="clipboard-section">
         <div class="section-header">
@@ -290,106 +327,7 @@
             </tr>
           </table>
         </div>
-      </div>
-
-      <!-- Screenshots Section -->
-      <div class="screenshots-section">
-        <div class="section-header">
-          <svg class="section-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
-          </svg>
-          <span class="section-title">Screenshots</span>
-        </div>
-
-        <div class="wp-button-grid">
-          <table class="wp-button-table">
-            <tr>
-              <td class="wp-button-cell">
-                <button id="screenshotBtn" class="wp-button screenshot-button">
-                  <span class="wp-button-label">Viewport</span>
-                </button>
-              </td>
-              <td class="wp-button-cell">
-                <button id="fullPageScreenshotBtn" class="wp-button fullpage-button">
-                  <span class="wp-button-label">Full Page</span>
-                </button>
-              </td>
-              <td class="wp-button-cell">
-                <button id="responsiveScreenshotsBtn" class="wp-button responsive-button">
-                  <span class="wp-button-label">3 Responsive States</span>
-                </button>
-              </td>
-            </tr>
-          </table>
-        </div>
-      </div>
-
-      <!-- Video Recording Section -->
-      <div class="recording-section">
-        <div class="section-header">
-          <svg class="section-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-          </svg>
-          <span class="section-title">Video Recording</span>
-        </div>
-
-        <div class="wp-button-grid">
-          <table class="wp-button-table">
-            <tr>
-              <td class="wp-button-cell">
-                <button id="startRecordingBtn" class="wp-button recording-button">
-                  <svg class="button-icon play-icon" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                  <span class="wp-button-label">Start Recording</span>
-                </button>
-              </td>
-              <td class="wp-button-cell">
-                <button id="stopRecordingBtn" class="wp-button stop-recording-button" disabled style="opacity: 0.5">
-                  <svg class="button-icon stop-icon" fill="currentColor" viewBox="0 0 24 24">
-                    <rect x="6" y="6" width="12" height="12" />
-                  </svg>
-                  <span class="wp-button-label">Stop Recording</span>
-                </button>
-              </td>
-              <td class="wp-button-cell">
-                <!-- Empty cell for layout -->
-              </td>
-            </tr>
-          </table>
-        </div>
-
-        <!-- Recording Status -->
-        <div id="recordingStatus" class="recording-status" style="display: none">
-          <div class="recording-indicator">
-            <span class="recording-dot"></span>
-            <span class="recording-text">Recording in progress...</span>
-          </div>
-          <div class="recording-time">00:00</div>
-        </div>
-      </div>
-
-      <!-- Filename Input Modal -->
-      <div id="filenameModal" class="modal-overlay" style="display: none">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h3 class="modal-title">Save Screenshot</h3>
-            <button id="closeModal" class="modal-close">✕</button>
-          </div>
-          <div class="modal-body">
-            <label for="filenameInput" class="filename-label">Filename:</label>
-            <input type="text" id="filenameInput" class="filename-input" placeholder="Enter filename (without extension)" />
-            <div class="filename-preview">
-              <span id="filenamePreview">screenshot.png</span>
-            </div>
-          </div>
-          <div class="modal-actions">
-            <button id="cancelScreenshot" class="modal-btn modal-btn-cancel">Cancel</button>
-            <button id="saveScreenshot" class="modal-btn modal-btn-primary">Save Screenshot</button>
-          </div>
-        </div>
-      </div>
+      </div>      
 
       <!-- Status Message -->
       <div id="status" class="status-message status-hidden"></div>
