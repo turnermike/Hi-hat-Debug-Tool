@@ -806,6 +806,19 @@ body {
   color: #7c3aed;
 }
 
+.responsive-button {
+  border-color: #f59e0b;
+}
+
+.responsive-button:hover,
+.responsive-button.active {
+  background-color: #f59e0b;
+}
+
+.responsive-button .wp-button-label {
+  color: #f59e0b;
+}
+
 /* Footer */
 .footer {
   margin-top: 16px;

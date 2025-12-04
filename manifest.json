@@ -12,6 +12,7 @@
   "permissions": [
     "activeTab",
     "tabs",
+    "windows",
     "downloads",
     "storage",
     "contextMenus",
@@ -22,6 +23,9 @@
   "background": {
     "service_worker": "background.js"
   },
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

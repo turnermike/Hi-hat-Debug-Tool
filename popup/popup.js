@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const scanBtn = document.getElementById('scanBtn');
   const screenshotBtn = document.getElementById('screenshotBtn');
   const fullPageScreenshotBtn = document.getElementById('fullPageScreenshotBtn');
+  const responsiveScreenshotsBtn = document.getElementById('responsiveScreenshotsBtn');
   const resetParamsBtn = document.getElementById('resetParamsBtn');
   const statusDiv = document.getElementById('status');
   
@@ -752,6 +753,10 @@ document.addEventListener('DOMContentLoaded', function() {
   
   fullPageScreenshotBtn.addEventListener('click', function() {
     showModal('fullpage');
+  });
+  
+  responsiveScreenshotsBtn.addEventListener('click', function() {
+    takeResponsiveScreenshots();
   });
   
   // Unified screenshot save function
@@ -1716,4 +1721,276 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Stop recording
   stopRecordingBtn.addEventListener('click', stopRecording);
+
+  //==============================
+  // Responsive Screenshots (3 states)
+  //==============================
+  async function takeResponsiveScreenshots() {
+    try {
+      console.log('Starting responsive screenshots...');
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!activeTab || !activeTab.url) {
+        console.log('Unable to get current tab');
+        showStatus('Unable to get current tab', true);
+        return;
+      }
+      if (activeTab.url.startsWith('chrome://') || activeTab.url.startsWith('chrome-extension://') || activeTab.url.startsWith('edge://') || activeTab.url.startsWith('about:')) {
+        console.log('Cannot screenshot this page - restricted URL');
+        showStatus('Cannot screenshot this page', true);
+        return;
+      }
+
+      console.log('Current active tab:', activeTab.url);
+      showStatus('Preparing responsive screenshots...');
+
+      const sizes = [
+        { width: 1890, height: 1200, label: 'desktop' },
+        { width: 1024, height: 1200, label: 'tablet' },
+        { width: 390,  height: 1200, label: 'mobile' },
+      ];
+
+      const pngs = [];
+      const urlObj = new URL(activeTab.url);
+      // Extract domain, page path and format date
+      const domain = urlObj.hostname;
+      const pagePath = urlObj.pathname.replace(/[^a-zA-Z0-9]/g, '-').replace(/^-|-$/g, '') || 'home';
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      
+      const zipName = `${domain}-${pagePath}-${dateStr}.zip`;
+
+      for (let i = 0; i < sizes.length; i++) {
+        const s = sizes[i];
+        showStatus(`Opening ${s.label} window (${s.width}px)...`);
+
+        // Open a temporary window at the requested width
+        console.log('Opening window for size:', s.label);
+        const createdWin = await chrome.windows.create({ url: activeTab.url, width: s.width, height: s.height, type: 'normal', focused: true, state: 'normal' });
+        console.log('Created window:', createdWin);
+        const createdWinId = createdWin.id;
+        const createdTabId = createdWin.tabs && createdWin.tabs[0] ? createdWin.tabs[0].id : null;
+        if (!createdTabId || !createdWinId) {
+          showStatus('Failed to open temporary window', true);
+          if (createdWinId) await chrome.windows.remove(createdWinId);
+          return;
+        }
+
+        // Wait for tab to finish loading
+        await waitForTabComplete(createdTabId);
+        
+        // Additional wait to ensure page is fully rendered
+        await new Promise(r => setTimeout(r, 1000));
+        
+        // Focus the window to make sure it's active
+        await chrome.windows.update(createdWinId, { focused: true });
+        
+        // Another small delay after focusing
+        await new Promise(r => setTimeout(r, 500));
+
+        // Prepare page for full page capture
+        const prep = await chrome.tabs.sendMessage(createdTabId, { action: 'prepareFullPageScreenshot' }).catch(() => null);
+        if (!prep || !prep.success) {
+          await chrome.windows.remove(createdWinId);
+          showStatus('Error preparing page for screenshot', true);
+          return;
+        }
+
+        const { totalHeight, viewportHeight, scrollSteps } = prep;
+        const screenshots = [];
+
+        for (let idx = 0; idx < scrollSteps.length; idx++) {
+          const y = scrollSteps[idx];
+          console.log(`Capturing part ${idx+1}/${scrollSteps.length} at y=${y}`);
+          await chrome.tabs.sendMessage(createdTabId, { action: 'scrollToPosition', scrollY: y }).catch(() => ({}));
+          await new Promise(r => setTimeout(r, 1000)); // Longer wait
+          
+          // Try capturing the tab
+          let dataUrl;
+          try {
+            dataUrl = await chrome.tabs.captureVisibleTab(createdWinId, { format: 'png', quality: 100 });
+            console.log(`Captured section ${idx+1}, data URL length:`, dataUrl.length);
+          } catch (error) {
+            console.error(`Error capturing section ${idx+1}:`, error);
+            // Try without window ID
+            try {
+              dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png', quality: 100 });
+              console.log(`Captured with null window ID, length:`, dataUrl.length);
+            } catch (error2) {
+              console.error(`Error with null window ID:`, error2);
+              // Exit early if we can't capture
+              await chrome.windows.remove(createdWinId);
+              showStatus('Error capturing screenshots', true);
+              return;
+            }
+          }
+          
+          screenshots.push({ dataUrl, scrollY: y, isLast: idx === scrollSteps.length - 1 });
+          showStatus(`Capturing ${s.label} ${idx + 1}/${scrollSteps.length}`);
+        }
+
+        // Restore scroll position and stitch
+        await chrome.tabs.sendMessage(createdTabId, { action: 'restoreScrollPosition' }).catch(() => ({}));
+        const stitched = await stitchScreenshots(screenshots, viewportHeight, totalHeight);
+
+        pngs.push({
+          name: `${pagePath}-${s.label}-${s.width}px.png`,
+          dataUrl: stitched
+        });
+
+        // Close the temporary window
+        await chrome.windows.remove(createdWinId);
+      }
+
+      showStatus('Packaging ZIP...');
+      console.log('PNGs to zip:', pngs.length, 'files');
+
+      // Build ZIP (STORE, no compression)
+      const zipBlob = await buildZipFromDataUrls(pngs);
+      console.log('Created ZIP blob, size:', zipBlob.size, 'bytes');
+      const zipUrl = URL.createObjectURL(zipBlob);
+
+      try {
+        await chrome.downloads.download({ url: zipUrl, filename: zipName, saveAs: false });
+        console.log('Download triggered successfully');
+      } catch (downloadError) {
+        console.error('Error downloading ZIP:', downloadError);
+        showStatus('Error downloading ZIP: ' + downloadError.message, true);
+        return;
+      }
+      setTimeout(() => URL.revokeObjectURL(zipUrl), 30000);
+
+      showStatus('Download ready!');
+
+      setTimeout(() => { window.close(); }, 1500);
+    } catch (e) {
+      console.error('Error in responsive screenshots:', e);
+      showStatus(`Error: ${e.message}`, true);
+    }
+  }
+
+  function waitForTabComplete(tabId) {
+    return new Promise((resolve) => {
+      chrome.tabs.get(tabId, (t) => {
+        if (t && t.status === 'complete') return resolve();
+        const listener = (id, changeInfo) => {
+          if (id === tabId && changeInfo.status === 'complete') {
+            chrome.tabs.onUpdated.removeListener(listener);
+            resolve();
+          }
+        };
+        chrome.tabs.onUpdated.addListener(listener);
+      });
+    });
+  }
+
+  // Minimal ZIP builder (STORE method)
+  async function buildZipFromDataUrls(files) {
+    // helpers
+    const textEncoder = new TextEncoder();
+
+    function decodeDataUrl(dataUrl) {
+      const base64 = dataUrl.split(',')[1];
+      const binStr = atob(base64);
+      const len = binStr.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i);
+      return bytes;
+    }
+
+    function crc32(buf) {
+      let c = 0 ^ (-1);
+      for (let i = 0; i < buf.length; i++) {
+        c = (c >>> 8) ^ CRC_TABLE[(c ^ buf[i]) & 0xFF];
+      }
+      return (c ^ (-1)) >>> 0;
+    }
+
+    // Precompute CRC table
+    const CRC_TABLE = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+      CRC_TABLE[n] = c >>> 0;
+    }
+
+    const localParts = [];
+    const centralParts = [];
+    let offset = 0;
+
+    for (const f of files) {
+      const nameBytes = textEncoder.encode(f.name);
+      const data = decodeDataUrl(f.dataUrl);
+      const crc = crc32(data);
+      const compSize = data.length; // STORE
+      const uncompSize = data.length;
+
+      // DOS time/date (now)
+      const now = new Date();
+      const dosTime = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() / 2)) & 0xFFFF;
+      const dosDate = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xFFFF;
+
+      // Local file header
+      const lfh = new Uint8Array(30 + nameBytes.length);
+      const dv = new DataView(lfh.buffer);
+      dv.setUint32(0, 0x04034b50, true); // signature
+      dv.setUint16(4, 20, true); // version needed
+      dv.setUint16(6, 0, true); // flags
+      dv.setUint16(8, 0, true); // compression (0=store)
+      dv.setUint16(10, dosTime, true);
+      dv.setUint16(12, dosDate, true);
+      dv.setUint32(14, crc, true);
+      dv.setUint32(18, compSize, true);
+      dv.setUint32(22, uncompSize, true);
+      dv.setUint16(26, nameBytes.length, true);
+      dv.setUint16(28, 0, true); // extra len
+      lfh.set(nameBytes, 30);
+
+      localParts.push(lfh, data);
+
+      // Central directory header
+      const cdfh = new Uint8Array(46 + nameBytes.length);
+      const cdv = new DataView(cdfh.buffer);
+      cdv.setUint32(0, 0x02014b50, true); // signature
+      cdv.setUint16(4, 20, true); // version made by
+      cdv.setUint16(6, 20, true); // version needed
+      cdv.setUint16(8, 0, true); // flags
+      cdv.setUint16(10, 0, true); // compression
+      cdv.setUint16(12, dosTime, true);
+      cdv.setUint16(14, dosDate, true);
+      cdv.setUint32(16, crc, true);
+      cdv.setUint32(20, compSize, true);
+      cdv.setUint32(24, uncompSize, true);
+      cdv.setUint16(28, nameBytes.length, true);
+      cdv.setUint16(30, 0, true); // extra
+      cdv.setUint16(32, 0, true); // comment
+      cdv.setUint16(34, 0, true); // disk number
+      cdv.setUint16(36, 0, true); // internal attrs
+      cdv.setUint32(38, 0, true); // external attrs
+      cdv.setUint32(42, offset, true); // relative offset of local header
+      cdfh.set(nameBytes, 46);
+
+      centralParts.push(cdfh);
+
+      offset += lfh.length + data.length;
+    }
+
+    // Concatenate local parts
+    const localSize = localParts.reduce((a, p) => a + p.length, 0);
+    const centralSize = centralParts.reduce((a, p) => a + p.length, 0);
+
+    const eocd = new Uint8Array(22);
+    const edv = new DataView(eocd.buffer);
+    edv.setUint32(0, 0x06054b50, true); // signature
+    edv.setUint16(4, 0, true); // disk number
+    edv.setUint16(6, 0, true); // disk start
+    edv.setUint16(8, files.length, true); // entries on disk
+    edv.setUint16(10, files.length, true); // total entries
+    edv.setUint32(12, centralSize, true); // size of central dir
+    edv.setUint32(16, localSize, true); // offset of central dir
+    edv.setUint16(20, 0, true); // comment length
+
+    // Build final blob
+    const parts = [...localParts, ...centralParts, eocd];
+    return new Blob(parts, { type: 'application/zip' });
+  }
 });
