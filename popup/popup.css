@@ -979,6 +979,10 @@ body {
 }
 
 /* Video Recording Styles */
+.recording-section {
+  display: none;
+}
+
 .recording-button {
   border-color: #dc2626;
 }
