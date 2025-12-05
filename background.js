@@ -136,62 +136,6 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
-// Context menu creation (optional - for right-click functionality)
-chrome.runtime.onInstalled.addListener(() => {
-  // Create context menu items for quick access
-  chrome.contextMenus.create({
-    id: 'hihat-debug',
-    title: 'Add Debug Parameter',
-    contexts: ['page'],
-    documentUrlPatterns: ['http://*/*', 'https://*/*']
-  });
-  
-  chrome.contextMenus.create({
-    id: 'hihat-clear-forms',
-    title: 'Clear All Forms',
-    contexts: ['page'],
-    documentUrlPatterns: ['http://*/*', 'https://*/*']
-  });
-  
-  chrome.contextMenus.create({
-    id: 'hihat-screenshot',
-    title: 'Take Screenshot',
-    contexts: ['page'],
-    documentUrlPatterns: ['http://*/*', 'https://*/*']
-  });
-});
-
-// Handle context menu clicks
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (!tab || !tab.id) return;
-  
-  switch (info.menuItemId) {
-    case 'hihat-debug':
-      // Send message to content script to add debug parameter
-      chrome.tabs.sendMessage(tab.id, { action: 'addDebugFromContext' });
-      break;
-      
-    case 'hihat-clear-forms':
-      // Send message to content script to clear forms
-      chrome.tabs.sendMessage(tab.id, { action: 'clearForms' });
-      break;
-      
-    case 'hihat-screenshot':
-      // Trigger screenshot functionality
-      chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
-        if (dataUrl) {
-          const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-          chrome.downloads.download({
-            url: dataUrl,
-            filename: `hihat-screenshot-${timestamp}.png`,
-            saveAs: false
-          });
-        }
-      });
-      break;
-  }
-});
-
 // Handle extension icon click (optional - alternative to popup)
 chrome.action.onClicked.addListener((tab) => {
   // This only fires if no popup is defined in manifest

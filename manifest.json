@@ -15,10 +15,8 @@
     "windows",
     "downloads",
     "storage",
-    "contextMenus",
     "clipboardRead",
-    "browsingData",
-    "tabCapture"
+    "browsingData"
   ],
   "background": {
     "service_worker": "background.js"

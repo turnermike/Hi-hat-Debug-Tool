@@ -9,22 +9,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const clearFormsBtn = document.getElementById('clearFormsBtn');
   const measureBtn = document.getElementById('measureBtn');
   const scanBtn = document.getElementById('scanBtn');
-  const screenshotBtn = document.getElementById('screenshotBtn');
-  const fullPageScreenshotBtn = document.getElementById('fullPageScreenshotBtn');
-  const responsiveScreenshotsBtn = document.getElementById('responsiveScreenshotsBtn');
   const resetParamsBtn = document.getElementById('resetParamsBtn');
   const statusDiv = document.getElementById('status');
-
-  // Modal elements
-  const filenameModal = document.getElementById('filenameModal');
-  const closeModal = document.getElementById('closeModal');
-  const cancelScreenshot = document.getElementById('cancelScreenshot');
-  const filenameInput = document.getElementById('filenameInput');
-  const filenamePreview = document.getElementById('filenamePreview');
-  const saveScreenshot = document.getElementById('saveScreenshot');
-
-  // Track which type of screenshot is being taken
-  let currentScreenshotType = 'viewport'; // 'viewport' or 'fullpage'
 
   // Vulnerability scanner elements
   const scanResultsSection = document.getElementById('scanResultsSection');
@@ -67,43 +53,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const clearFormDataBtn = document.getElementById('clearFormDataBtn');
   const clearWebSQLBtn = document.getElementById('clearWebSQLBtn');
   const clearAllDataBtn = document.getElementById('clearAllDataBtn');
-
-  // Video Recording elements
-  const startRecordingBtn = document.getElementById('startRecordingBtn');
-  const stopRecordingBtn = document.getElementById('stopRecordingBtn');
-  const recordingStatus = document.getElementById('recordingStatus');
-  const recordingTime = document.querySelector('.recording-time');
-
-  // Recording state
-  let mediaRecorder = null;
-  let recordedChunks = [];
-  let recordingStartTime = null;
-  let recordingInterval = null;
-  let streamId = null;
-  let isPaused = false;
-  let pausedTime = 0;
-  let currentTabId = null;
-
-  // Listen for messages from content script (toolbar buttons)
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'togglePauseRecording') {
-      togglePauseRecording();
-      sendResponse({ success: true });
-      return true;
-    }
-
-    if (request.action === 'stopRecording') {
-      stopRecording();
-      sendResponse({ success: true });
-      return true;
-    }
-
-    if (request.action === 'startActualRecording') {
-      startActualRecording();
-      sendResponse({ success: true });
-      return true;
-    }
-  });
+  const clearCacheStatus = document.getElementById('clear-cache-status');
 
   // WordPress detection and initialization
   async function initializeWordPress() {
@@ -234,61 +184,15 @@ document.addEventListener('DOMContentLoaded', function () {
     }, 2000);
   }
 
-  // Modal utility functions
-  function showModal(screenshotType = 'viewport') {
-    currentScreenshotType = screenshotType;
+  function showCacheStatus(message, isError = false) {
+    clearCacheStatus.textContent = message;
+    clearCacheStatus.className = `status-message ${isError ? 'status-error' : 'status-success'}`;
 
-    // Generate default filename with appropriate prefix
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-    const prefix = screenshotType === 'fullpage' ? 'fullpage-' : 'viewport-';
-    const defaultFilename = `${prefix}${timestamp}`;
-
-    filenameInput.value = defaultFilename;
-    updateFilenamePreview();
-    filenameModal.style.display = 'flex';
-    filenameInput.focus();
-    filenameInput.select();
+    // Hide status after 2 seconds
+    setTimeout(() => {
+      clearCacheStatus.className = 'status-message status-hidden';
+    }, 2000);
   }
-
-  function hideModal() {
-    filenameModal.style.display = 'none';
-    filenameInput.value = '';
-  }
-
-  function updateFilenamePreview() {
-    const filename = filenameInput.value.trim() || 'screenshot';
-    filenamePreview.textContent = `${filename}.png`;
-  }
-
-  function sanitizeFilename(filename) {
-    // Remove or replace invalid characters for filenames
-    return filename.replace(/[<>:"/\\|?*]/g, '-').replace(/\s+/g, '_');
-  }
-
-  // Modal event listeners
-  closeModal.addEventListener('click', hideModal);
-  cancelScreenshot.addEventListener('click', hideModal);
-
-  // Update preview when typing
-  filenameInput.addEventListener('input', updateFilenamePreview);
-
-  // Handle Enter key in filename input
-  filenameInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      saveScreenshot.click();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      hideModal();
-    }
-  });
-
-  // Close modal when clicking outside
-  filenameModal.addEventListener('click', function(e) {
-    if (e.target === filenameModal) {
-      hideModal();
-    }
-  });
 
   addDebugBtn.addEventListener('click', async function () {
     try {
@@ -752,181 +656,6 @@ document.addEventListener('DOMContentLoaded', function () {
     wpScanResults.innerHTML = '';
   }
 
-  // Screenshot functionality - show modal instead of taking screenshot directly
-  screenshotBtn.addEventListener('click', function () {
-    showModal('viewport');
-  });
-
-  fullPageScreenshotBtn.addEventListener('click', function () {
-    showModal('fullpage');
-  });
-
-  responsiveScreenshotsBtn.addEventListener('click', function () {
-    takeResponsiveScreenshots();
-  });
-
-  // Unified screenshot save function
-  saveScreenshot.addEventListener('click', async function () {
-    const filename = sanitizeFilename(filenameInput.value.trim() || 'screenshot');
-    hideModal();
-
-    try {
-      // Get the current active tab
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-      if (!tab || !tab.url) {
-        showStatus('Unable to get current tab', true);
-        return;
-      }
-
-      // Check if it's a restricted page
-      if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
-        showStatus('Cannot screenshot this page', true);
-        return;
-      }
-
-      if (currentScreenshotType === 'viewport') {
-        // Take viewport screenshot
-        showStatus('Taking screenshot...');
-
-        const dataUrl = await chrome.tabs.captureVisibleTab(null, {
-          format: 'png',
-          quality: 100
-        });
-
-        await chrome.downloads.download({
-          url: dataUrl,
-          filename: `${filename}.png`,
-          saveAs: false
-        });
-
-        showStatus('Screenshot saved to Downloads!');
-      } else {
-        // Take full page screenshot
-        showStatus('Taking full page screenshot...');
-
-        try {
-          // Send message to content script to prepare for full page capture
-          const response = await chrome.tabs.sendMessage(tab.id, { action: 'prepareFullPageScreenshot' });
-
-          if (!response || !response.success) {
-            showStatus('Error: Could not prepare page for screenshot', true);
-            return;
-          }
-
-          const { totalHeight, viewportHeight, scrollSteps } = response;
-          const screenshots = [];
-
-          // Take screenshots for each scroll position
-          for (let i = 0; i < scrollSteps.length; i++) {
-            const scrollY = scrollSteps[i];
-
-            // Scroll to position
-            await chrome.tabs.sendMessage(tab.id, {
-              action: 'scrollToPosition',
-              scrollY: scrollY
-            });
-
-            // Wait for scroll to complete
-            await new Promise(resolve => setTimeout(resolve, 300));
-
-            // Capture screenshot
-            const dataUrl = await chrome.tabs.captureVisibleTab(null, {
-              format: 'png',
-              quality: 100
-            });
-
-            screenshots.push({
-              dataUrl,
-              scrollY,
-              isLast: i === scrollSteps.length - 1
-            });
-
-            showStatus(`Capturing... ${i + 1}/${scrollSteps.length}`);
-          }
-
-          // Restore original scroll position
-          await chrome.tabs.sendMessage(tab.id, { action: 'restoreScrollPosition' });
-
-          // Stitch screenshots together
-          const stitchedDataUrl = await stitchScreenshots(screenshots, viewportHeight, totalHeight);
-
-          // Download the screenshot with custom filename
-          await chrome.downloads.download({
-            url: stitchedDataUrl,
-            filename: `${filename}.png`,
-            saveAs: false
-          });
-
-          showStatus('Full page screenshot saved!');
-
-        } catch (messageError) {
-          showStatus('Error: Content script not responding. Try refreshing the page.', true);
-          return;
-        }
-      }
-
-      // Close popup after successful action
-      setTimeout(() => {
-        window.close();
-      }, 1500);
-
-    } catch (error) {
-      showStatus(`Error: Could not take screenshot - ${error.message}`, true);
-    }
-  });
-
-  // Function to stitch multiple screenshots together
-  async function stitchScreenshots(screenshots, viewportHeight, totalHeight) {
-    return new Promise((resolve) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-
-      // Set canvas dimensions
-      canvas.width = screenshots[0] ? 1920 : 1920; // Default width, will be adjusted
-      canvas.height = totalHeight;
-
-      let loadedCount = 0;
-      const images = [];
-
-      // Load all images
-      screenshots.forEach((screenshot, index) => {
-        const img = new Image();
-        img.onload = () => {
-          images[index] = img;
-          loadedCount++;
-
-          // Set canvas width based on first image
-          if (index === 0) {
-            canvas.width = img.width;
-          }
-
-          // When all images are loaded, draw them
-          if (loadedCount === screenshots.length) {
-            // Draw screenshots with proper positioning
-            screenshots.forEach((screenshot, i) => {
-              const img = images[i];
-              const y = screenshot.scrollY;
-
-              // Handle potential overlap for last screenshot
-              if (screenshot.isLast && totalHeight < y + viewportHeight) {
-                const cropHeight = totalHeight - y;
-                ctx.drawImage(img, 0, 0, img.width, cropHeight, 0, y, img.width, cropHeight);
-              } else {
-                ctx.drawImage(img, 0, y);
-              }
-            });
-
-            // Convert to data URL
-            const dataUrl = canvas.toDataURL('image/png', 1.0);
-            resolve(dataUrl);
-          }
-        };
-        img.src = screenshot.dataUrl;
-      });
-    });
-  }
-
   // Event listeners for vulnerability scanner
   scanBtn.addEventListener('click', performVulnerabilityScan);
 
@@ -1092,7 +821,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Show success state
         btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
-        showStatus('Cache cleared successfully!');
+        showCacheStatus('Cache cleared successfully!');
 
         // Reset button after delay
         setTimeout(() => {
@@ -1102,12 +831,12 @@ document.addEventListener('DOMContentLoaded', function () {
       } else {
         btn.innerHTML = originalContent;
         btn.disabled = false;
-        showStatus('Cannot clear cache on this page', true);
+        showCacheStatus('Cannot clear cache on this page', true);
       }
     } catch (error) {
       btn.innerHTML = originalContent;
       btn.disabled = false;
-      showStatus('Error clearing cache: ' + error.message, true);
+      showCacheStatus('Error clearing cache: ' + error.message, true);
     }
   });
 
@@ -1128,7 +857,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
-        showStatus('Cookies cleared successfully!');
+        showCacheStatus('Cookies cleared successfully!');
 
         setTimeout(() => {
           btn.innerHTML = originalContent;
@@ -1137,12 +866,12 @@ document.addEventListener('DOMContentLoaded', function () {
       } else {
         btn.innerHTML = originalContent;
         btn.disabled = false;
-        showStatus('Cannot clear cookies on this page', true);
+        showCacheStatus('Cannot clear cookies on this page', true);
       }
     } catch (error) {
       btn.innerHTML = originalContent;
       btn.disabled = false;
-      showStatus('Error clearing cookies: ' + error.message, true);
+      showCacheStatus('Error clearing cookies: ' + error.message, true);
     }
   });
 
@@ -1163,7 +892,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
-        showStatus('Local storage cleared successfully!');
+        showCacheStatus('Local storage cleared successfully!');
 
         setTimeout(() => {
           btn.innerHTML = originalContent;
@@ -1172,12 +901,12 @@ document.addEventListener('DOMContentLoaded', function () {
       } else {
         btn.innerHTML = originalContent;
         btn.disabled = false;
-        showStatus('Cannot clear local storage on this page', true);
+        showCacheStatus('Cannot clear local storage on this page', true);
       }
     } catch (error) {
       btn.innerHTML = originalContent;
       btn.disabled = false;
-      showStatus('Error clearing local storage: ' + error.message, true);
+      showCacheStatus('Error clearing local storage: ' + error.message, true);
     }
   });
 
@@ -1200,7 +929,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
-        showStatus('IndexedDB cleared successfully!');
+        showCacheStatus('IndexedDB cleared successfully!');
 
         setTimeout(() => {
           btn.innerHTML = originalContent;
@@ -1209,12 +938,12 @@ document.addEventListener('DOMContentLoaded', function () {
       } else {
         btn.innerHTML = originalContent;
         btn.disabled = false;
-        showStatus('Cannot clear IndexedDB on this page', true);
+        showCacheStatus('Cannot clear IndexedDB on this page', true);
       }
     } catch (error) {
       btn.innerHTML = originalContent;
       btn.disabled = false;
-      showStatus('Error clearing IndexedDB: ' + error.message, true);
+      showCacheStatus('Error clearing IndexedDB: ' + error.message, true);
     }
   });
 
@@ -1235,7 +964,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
-        showStatus('Service workers cleared successfully!');
+        showCacheStatus('Service workers cleared successfully!');
 
         setTimeout(() => {
           btn.innerHTML = originalContent;
@@ -1244,12 +973,12 @@ document.addEventListener('DOMContentLoaded', function () {
       } else {
         btn.innerHTML = originalContent;
         btn.disabled = false;
-        showStatus('Cannot clear service workers on this page', true);
+        showCacheStatus('Cannot clear service workers on this page', true);
       }
     } catch (error) {
       btn.innerHTML = originalContent;
       btn.disabled = false;
-      showStatus('Error clearing service workers: ' + error.message, true);
+      showCacheStatus('Error clearing service workers: ' + error.message, true);
     }
   });
 
@@ -1272,7 +1001,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
-        showStatus('Cache storage cleared successfully!');
+        showCacheStatus('Cache storage cleared successfully!');
 
         setTimeout(() => {
           btn.innerHTML = originalContent;
@@ -1281,12 +1010,12 @@ document.addEventListener('DOMContentLoaded', function () {
       } else {
         btn.innerHTML = originalContent;
         btn.disabled = false;
-        showStatus('Cannot clear cache storage on this page', true);
+        showCacheStatus('Cannot clear cache storage on this page', true);
       }
     } catch (error) {
       btn.innerHTML = originalContent;
       btn.disabled = false;
-      showStatus('Error clearing cache storage: ' + error.message, true);
+      showCacheStatus('Error clearing cache storage: ' + error.message, true);
     }
   });
 
@@ -1307,7 +1036,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
-        showStatus('Form data cleared successfully!');
+        showCacheStatus('Form data cleared successfully!');
 
         setTimeout(() => {
           btn.innerHTML = originalContent;
@@ -1316,12 +1045,12 @@ document.addEventListener('DOMContentLoaded', function () {
       } else {
         btn.innerHTML = originalContent;
         btn.disabled = false;
-        showStatus('Cannot clear form data on this page', true);
+        showCacheStatus('Cannot clear form data on this page', true);
       }
     } catch (error) {
       btn.innerHTML = originalContent;
       btn.disabled = false;
-      showStatus('Error clearing form data: ' + error.message, true);
+      showCacheStatus('Error clearing form data: ' + error.message, true);
     }
   });
 
@@ -1344,7 +1073,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
-        showStatus('Web SQL cleared successfully!');
+        showCacheStatus('Web SQL cleared successfully!');
 
         setTimeout(() => {
           btn.innerHTML = originalContent;
@@ -1353,12 +1082,12 @@ document.addEventListener('DOMContentLoaded', function () {
       } else {
         btn.innerHTML = originalContent;
         btn.disabled = false;
-        showStatus('Cannot clear Web SQL on this page', true);
+        showCacheStatus('Cannot clear Web SQL on this page', true);
       }
     } catch (error) {
       btn.innerHTML = originalContent;
       btn.disabled = false;
-      showStatus('Error clearing Web SQL: ' + error.message, true);
+      showCacheStatus('Error clearing Web SQL: ' + error.message, true);
     }
   });
 
@@ -1394,7 +1123,7 @@ document.addEventListener('DOMContentLoaded', function () {
         await Promise.all([clearPromise, delayPromise]);
 
         btn.innerHTML = '<span class="wp-button-label">✓ All Cleared!</span>';
-        showStatus('All site data cleared! Reloading...');
+        showCacheStatus('All site data cleared! Reloading...');
 
         // Close popup and reload the tab after clearing all data
         setTimeout(async () => {
@@ -1407,615 +1136,12 @@ document.addEventListener('DOMContentLoaded', function () {
       } else {
         btn.innerHTML = originalContent;
         btn.disabled = false;
-        showStatus('Cannot clear data on this page', true);
+        showCacheStatus('Cannot clear data on this page', true);
       }
     } catch (error) {
       btn.innerHTML = originalContent;
       btn.disabled = false;
-      showStatus('Error clearing all data: ' + error.message, true);
+      showCacheStatus('Error clearing all data: ' + error.message, true);
     }
   });
-
-  // Video Recording functionality
-
-  // Constants for recording time limits
-  const MAX_RECORDING_TIME = 180; // 3 minutes in seconds  
-  const WARNING_TIME_30S = 150; // 30 seconds before max 
-  const WARNING_TIME_10S = 170; // 10 seconds before max
-
-  // Format time as MM:SS
-  function formatTime(seconds) {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  }
-
-  // Update recording timer
-  function updateRecordingTimer() {
-    if (recordingStartTime) {
-      const elapsed = Math.floor((Date.now() - recordingStartTime - pausedTime) / 1000);
-      const timeString = formatTime(elapsed);
-      recordingTime.textContent = timeString;
-
-      // Check if approaching time limits
-      let warningLevel = 'none';
-      let remainingTime = MAX_RECORDING_TIME - elapsed;
-
-      if (elapsed >= WARNING_TIME_10S) {
-        warningLevel = 'critical';
-      } else if (elapsed >= WARNING_TIME_30S) {
-        warningLevel = 'warning';
-      }
-
-      // Update toolbar on page with time details
-      if (currentTabId) {
-        chrome.tabs.sendMessage(currentTabId, {
-          action: 'updateRecordingTime',
-          time: timeString,
-          elapsed: elapsed,
-          remaining: remainingTime,
-          warningLevel: warningLevel
-        }).catch(() => { });
-      }
-
-      // Automatically stop when limit is reached
-      if (elapsed >= MAX_RECORDING_TIME) {
-        console.log('Maximum recording time reached, stopping recording');
-
-        // Show notification about time limit reached
-        if (currentTabId) {
-          chrome.tabs.sendMessage(currentTabId, {
-            action: 'showNotification',
-            message: 'Recording stopped: maximum time of 3 minutes reached'
-          }).catch(() => { });
-        }
-
-        stopRecording();
-        return;
-      }
-    }
-  }
-
-  // Start recording
-  startRecordingBtn.addEventListener('click', async function () {
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-      if (!tab || !tab.url) {
-        showStatus('Unable to get current tab', true);
-        return;
-      }
-
-      currentTabId = tab.id;
-
-      // Check if it's a restricted page
-      if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
-        showStatus('Cannot record this page', true);
-        return;
-      }
-
-      // Close popup immediately when user clicks Start Recording
-      setTimeout(() => {
-        window.close();
-      }, 200);
-
-      // Show recording toolbar on the page (without starting recording immediately)
-      console.log('Showing recording toolbar without recording...');
-
-      // Try multiple attempts with delays to ensure the page is ready
-      const tryShowToolbar = (attempt = 1, maxAttempts = 3) => {
-        chrome.tabs.sendMessage(currentTabId, { action: 'showRecordingToolbar', mode: 'ready' })
-          .then(response => {
-            if (!response || !response.success) {
-              console.error(`Failed to show recording toolbar (attempt ${attempt}):`, response?.message || 'Unknown error');
-              if (attempt < maxAttempts) {
-                setTimeout(() => tryShowToolbar(attempt + 1, maxAttempts), 500 * attempt);
-              }
-            } else {
-              console.log('Recording toolbar shown successfully');
-            }
-          })
-          .catch(error => {
-            console.error(`Error sending showRecordingToolbar message (attempt ${attempt}):`, error);
-            if (attempt < maxAttempts) {
-              setTimeout(() => tryShowToolbar(attempt + 1, maxAttempts), 500 * attempt);
-            }
-          });
-      };
-
-      // First attempt with no delay
-      tryShowToolbar();
-
-      // Store tabId but don't start recording yet
-      // The user must click play button in the toolbar to start recording
-
-    } catch (error) {
-      showStatus('Error: ' + error.message, true);
-    }
-  });
-
-  // New function to actually start recording when user clicks play
-  async function startActualRecording() {
-    try {
-      if (!currentTabId) {
-        showStatus('No active tab for recording', true);
-        return;
-      }
-
-      // Request tab capture
-      console.log('Requesting tab capture for actual recording...');
-      chrome.tabCapture.capture({
-        audio: true,
-        video: true,
-        videoConstraints: {
-          mandatory: {
-            minWidth: 1280,
-            minHeight: 720,
-            maxWidth: 1920,
-            maxHeight: 1080,
-            maxFrameRate: 30
-          }
-        }
-      }, (stream) => {
-        if (chrome.runtime.lastError) {
-          console.error('Tab capture error:', chrome.runtime.lastError);
-          showStatus('Error: ' + chrome.runtime.lastError.message, true);
-          return;
-        }
-
-        if (!stream) {
-          console.error('No stream received');
-          showStatus('Failed to capture tab', true);
-          return;
-        }
-
-        console.log('Stream received:', stream);
-
-        // Create media recorder
-        try {
-          recordedChunks = [];
-          isPaused = false;
-          pausedTime = 0;
-
-          const options = { mimeType: 'video/webm;codecs=vp9' };
-
-          // Fallback to vp8 if vp9 is not supported
-          if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-            console.log('VP9 not supported, falling back to VP8');
-            options.mimeType = 'video/webm;codecs=vp8';
-          }
-
-          console.log('Creating MediaRecorder with options:', options);
-          mediaRecorder = new MediaRecorder(stream, options);
-          console.log('MediaRecorder created successfully');
-
-          mediaRecorder.ondataavailable = (event) => {
-            if (event.data && event.data.size > 0) {
-              recordedChunks.push(event.data);
-              console.log('Data chunk received:', event.data.size, 'bytes. Total chunks:', recordedChunks.length);
-            }
-          };
-
-          mediaRecorder.onstop = async () => {
-            console.log('MediaRecorder stopped. Total chunks:', recordedChunks.length);
-            // Stop all tracks
-            stream.getTracks().forEach(track => track.stop());
-
-            // Create blob from recorded chunks
-            const blob = new Blob(recordedChunks, { type: 'video/webm' });
-
-            // Generate filename
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-            const filename = `recording-${timestamp}.webm`;
-
-            // Create download URL
-            const url = URL.createObjectURL(blob);
-
-            // Download the video
-            try {
-              await chrome.downloads.download({
-                url: url,
-                filename: filename,
-                saveAs: true
-              });
-
-              showStatus('Recording saved!');
-            } catch (error) {
-              showStatus('Error saving recording: ' + error.message, true);
-            } finally {
-              URL.revokeObjectURL(url);
-            }
-
-            // Hide toolbar
-            if (currentTabId) {
-              chrome.tabs.sendMessage(currentTabId, {
-                action: 'hideRecordingToolbar'
-              }).catch(() => { });
-            }
-
-            // Reset UI
-            recordingStatus.style.display = 'none';
-            startRecordingBtn.disabled = false;
-            stopRecordingBtn.disabled = true;
-            stopRecordingBtn.style.opacity = '0.5';
-
-            // Clear interval
-            if (recordingInterval) {
-              clearInterval(recordingInterval);
-              recordingInterval = null;
-            }
-
-            recordedChunks = [];
-            mediaRecorder = null;
-            isPaused = false;
-            pausedTime = 0;
-            currentTabId = null;
-          };
-
-          // Start recording
-          console.log('Starting MediaRecorder...');
-          mediaRecorder.start(100); // Collect data every 100ms
-          console.log('MediaRecorder state:', mediaRecorder.state);
-
-          // Update UI
-          recordingStartTime = Date.now();
-          recordingTime.textContent = '00:00';
-          recordingStatus.style.display = 'block';
-          startRecordingBtn.disabled = true;
-          stopRecordingBtn.disabled = false;
-          stopRecordingBtn.style.opacity = '1';
-
-          // Update toolbar state to recording
-          chrome.tabs.sendMessage(currentTabId, { action: 'updateRecordingState', state: 'recording' })
-            .catch(() => { });
-
-          // Start timer
-          recordingInterval = setInterval(() => {
-            if (!isPaused) {
-              updateRecordingTimer();
-            }
-          }, 1000);
-
-          showStatus('Recording started');
-          console.log('Recording setup complete');
-
-        } catch (error) {
-          showStatus('Error starting recording: ' + error.message, true);
-          stream.getTracks().forEach(track => track.stop());
-        }
-      });
-
-    } catch (error) {
-      showStatus('Error: ' + error.message, true);
-    }
-  }
-
-  // Toggle pause/resume recording
-  function togglePauseRecording() {
-    if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
-
-    if (mediaRecorder.state === 'recording') {
-      // Pause
-      mediaRecorder.pause();
-      isPaused = true;
-      const pauseStartTime = Date.now();
-
-      // Update toolbar UI
-      if (currentTabId) {
-        chrome.tabs.sendMessage(currentTabId, {
-          action: 'updateRecordingState',
-          state: 'paused'
-        }).catch(() => { });
-      }
-
-      showStatus('Recording paused');
-
-      // Store when pause started for accurate time tracking
-      window.pauseStartTime = pauseStartTime;
-
-    } else if (mediaRecorder.state === 'paused') {
-      // Resume
-      mediaRecorder.resume();
-      isPaused = false;
-
-      // Add the paused duration to total paused time
-      if (window.pauseStartTime) {
-        pausedTime += Date.now() - window.pauseStartTime;
-        delete window.pauseStartTime;
-      }
-
-      // Update toolbar UI
-      if (currentTabId) {
-        chrome.tabs.sendMessage(currentTabId, {
-          action: 'updateRecordingState',
-          state: 'recording'
-        }).catch(() => { });
-      }
-
-      showStatus('Recording resumed');
-    }
-  }
-
-  // Stop recording function
-  function stopRecording() {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop();
-      showStatus('Stopping recording...');
-    }
-  }
-
-  // Stop recording
-  stopRecordingBtn.addEventListener('click', stopRecording);
-
-  //==============================
-  // Responsive Screenshots (3 states)
-  //==============================
-  async function takeResponsiveScreenshots() {
-    try {
-      console.log('Starting responsive screenshots...');
-      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!activeTab || !activeTab.url) {
-        console.log('Unable to get current tab');
-        showStatus('Unable to get current tab', true);
-        return;
-      }
-      if (activeTab.url.startsWith('chrome://') || activeTab.url.startsWith('chrome-extension://') || activeTab.url.startsWith('edge://') || activeTab.url.startsWith('about:')) {
-        console.log('Cannot screenshot this page - restricted URL');
-        showStatus('Cannot screenshot this page', true);
-        return;
-      }
-
-      console.log('Current active tab:', activeTab.url);
-      showStatus('Preparing responsive screenshots...');
-
-      const sizes = [
-        { width: 1890, height: 1200, label: 'desktop' },
-        { width: 1024, height: 1200, label: 'tablet' },
-        { width: 390, height: 1200, label: 'mobile' },
-      ];
-
-      const pngs = [];
-      const urlObj = new URL(activeTab.url);
-      // Extract domain, page path and format date
-      const domain = urlObj.hostname;
-      const pagePath = urlObj.pathname.replace(/[^a-zA-Z0-9]/g, '-').replace(/^-|-$/g, '') || 'home';
-      const today = new Date();
-      const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
-      const zipName = `${domain}-${pagePath}-${dateStr}.zip`;
-
-      for (let i = 0; i < sizes.length; i++) {
-        const s = sizes[i];
-        showStatus(`Opening ${s.label} window (${s.width}px)...`);
-
-        // Open a temporary window at the requested width
-        console.log('Opening window for size:', s.label);
-        const createdWin = await chrome.windows.create({ url: activeTab.url, width: s.width, height: s.height, type: 'normal', focused: true, state: 'normal' });
-        console.log('Created window:', createdWin);
-        const createdWinId = createdWin.id;
-        const createdTabId = createdWin.tabs && createdWin.tabs[0] ? createdWin.tabs[0].id : null;
-        if (!createdTabId || !createdWinId) {
-          showStatus('Failed to open temporary window', true);
-          if (createdWinId) await chrome.windows.remove(createdWinId);
-          return;
-        }
-
-        // Wait for tab to finish loading
-        await waitForTabComplete(createdTabId);
-
-        // Additional wait to ensure page is fully rendered
-        await new Promise(r => setTimeout(r, 1000));
-
-        // Focus the window to make sure it's active
-        await chrome.windows.update(createdWinId, { focused: true });
-
-        // Another small delay after focusing
-        await new Promise(r => setTimeout(r, 500));
-
-        // Prepare page for full page capture
-        const prep = await chrome.tabs.sendMessage(createdTabId, { action: 'prepareFullPageScreenshot' }).catch(() => null);
-        if (!prep || !prep.success) {
-          await chrome.windows.remove(createdWinId);
-          showStatus('Error preparing page for screenshot', true);
-          return;
-        }
-
-        const { totalHeight, viewportHeight, scrollSteps } = prep;
-        const screenshots = [];
-
-        for (let idx = 0; idx < scrollSteps.length; idx++) {
-          const y = scrollSteps[idx];
-          console.log(`Capturing part ${idx + 1}/${scrollSteps.length} at y=${y}`);
-          await chrome.tabs.sendMessage(createdTabId, { action: 'scrollToPosition', scrollY: y }).catch(() => ({}));
-          await new Promise(r => setTimeout(r, 1000)); // Longer wait
-
-          // Try capturing the tab
-          let dataUrl;
-          try {
-            dataUrl = await chrome.tabs.captureVisibleTab(createdWinId, { format: 'png', quality: 100 });
-            console.log(`Captured section ${idx + 1}, data URL length:`, dataUrl.length);
-          } catch (error) {
-            console.error(`Error capturing section ${idx + 1}:`, error);
-            // Try without window ID
-            try {
-              dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png', quality: 100 });
-              console.log(`Captured with null window ID, length:`, dataUrl.length);
-            } catch (error2) {
-              console.error(`Error with null window ID:`, error2);
-              // Exit early if we can't capture
-              await chrome.windows.remove(createdWinId);
-              showStatus('Error capturing screenshots', true);
-              return;
-            }
-          }
-
-          screenshots.push({ dataUrl, scrollY: y, isLast: idx === scrollSteps.length - 1 });
-          showStatus(`Capturing ${s.label} ${idx + 1}/${scrollSteps.length}`);
-        }
-
-        // Restore scroll position and stitch
-        await chrome.tabs.sendMessage(createdTabId, { action: 'restoreScrollPosition' }).catch(() => ({}));
-        const stitched = await stitchScreenshots(screenshots, viewportHeight, totalHeight);
-
-        pngs.push({
-          name: `${pagePath}-${s.label}-${s.width}px.png`,
-          dataUrl: stitched
-        });
-
-        // Close the temporary window
-        await chrome.windows.remove(createdWinId);
-      }
-
-      showStatus('Packaging ZIP...');
-      console.log('PNGs to zip:', pngs.length, 'files');
-
-      // Build ZIP (STORE, no compression)
-      const zipBlob = await buildZipFromDataUrls(pngs);
-      console.log('Created ZIP blob, size:', zipBlob.size, 'bytes');
-      const zipUrl = URL.createObjectURL(zipBlob);
-
-      try {
-        await chrome.downloads.download({ url: zipUrl, filename: zipName, saveAs: false });
-        console.log('Download triggered successfully');
-      } catch (downloadError) {
-        console.error('Error downloading ZIP:', downloadError);
-        showStatus('Error downloading ZIP: ' + downloadError.message, true);
-        return;
-      }
-      setTimeout(() => URL.revokeObjectURL(zipUrl), 30000);
-
-      showStatus('Download ready!');
-
-      setTimeout(() => { window.close(); }, 1500);
-    } catch (e) {
-      console.error('Error in responsive screenshots:', e);
-      showStatus(`Error: ${e.message}`, true);
-    }
-  }
-
-  function waitForTabComplete(tabId) {
-    return new Promise((resolve) => {
-      chrome.tabs.get(tabId, (t) => {
-        if (t && t.status === 'complete') return resolve();
-        const listener = (id, changeInfo) => {
-          if (id === tabId && changeInfo.status === 'complete') {
-            chrome.tabs.onUpdated.removeListener(listener);
-            resolve();
-          }
-        };
-        chrome.tabs.onUpdated.addListener(listener);
-      });
-    });
-  }
-
-  // Minimal ZIP builder (STORE method)
-  async function buildZipFromDataUrls(files) {
-    // helpers
-    const textEncoder = new TextEncoder();
-
-    function decodeDataUrl(dataUrl) {
-      const base64 = dataUrl.split(',')[1];
-      const binStr = atob(base64);
-      const len = binStr.length;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i);
-      return bytes;
-    }
-
-    function crc32(buf) {
-      let c = 0 ^ (-1);
-      for (let i = 0; i < buf.length; i++) {
-        c = (c >>> 8) ^ CRC_TABLE[(c ^ buf[i]) & 0xFF];
-      }
-      return (c ^ (-1)) >>> 0;
-    }
-
-    // Precompute CRC table
-    const CRC_TABLE = new Uint32Array(256);
-    for (let n = 0; n < 256; n++) {
-      let c = n;
-      for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
-      CRC_TABLE[n] = c >>> 0;
-    }
-
-    const localParts = [];
-    const centralParts = [];
-    let offset = 0;
-
-    for (const f of files) {
-      const nameBytes = textEncoder.encode(f.name);
-      const data = decodeDataUrl(f.dataUrl);
-      const crc = crc32(data);
-      const compSize = data.length; // STORE
-      const uncompSize = data.length;
-
-      // DOS time/date (now)
-      const now = new Date();
-      const dosTime = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() / 2)) & 0xFFFF;
-      const dosDate = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xFFFF;
-
-      // Local file header
-      const lfh = new Uint8Array(30 + nameBytes.length);
-      const dv = new DataView(lfh.buffer);
-      dv.setUint32(0, 0x04034b50, true); // signature
-      dv.setUint16(4, 20, true); // version needed
-      dv.setUint16(6, 0, true); // flags
-      dv.setUint16(8, 0, true); // compression (0=store)
-      dv.setUint16(10, dosTime, true);
-      dv.setUint16(12, dosDate, true);
-      dv.setUint32(14, crc, true);
-      dv.setUint32(18, compSize, true);
-      dv.setUint32(22, uncompSize, true);
-      dv.setUint16(26, nameBytes.length, true);
-      dv.setUint16(28, 0, true); // extra len
-      lfh.set(nameBytes, 30);
-
-      localParts.push(lfh, data);
-
-      // Central directory header
-      const cdfh = new Uint8Array(46 + nameBytes.length);
-      const cdv = new DataView(cdfh.buffer);
-      cdv.setUint32(0, 0x02014b50, true); // signature
-      cdv.setUint16(4, 20, true); // version made by
-      cdv.setUint16(6, 20, true); // version needed
-      cdv.setUint16(8, 0, true); // flags
-      cdv.setUint16(10, 0, true); // compression
-      cdv.setUint16(12, dosTime, true);
-      cdv.setUint16(14, dosDate, true);
-      cdv.setUint32(16, crc, true);
-      cdv.setUint32(20, compSize, true);
-      cdv.setUint32(24, uncompSize, true);
-      cdv.setUint16(28, nameBytes.length, true);
-      cdv.setUint16(30, 0, true); // extra
-      cdv.setUint16(32, 0, true); // comment
-      cdv.setUint16(34, 0, true); // disk number
-      cdv.setUint16(36, 0, true); // internal attrs
-      cdv.setUint32(38, 0, true); // external attrs
-      cdv.setUint32(42, offset, true); // relative offset of local header
-      cdfh.set(nameBytes, 46);
-
-      centralParts.push(cdfh);
-
-      offset += lfh.length + data.length;
-    }
-
-    // Concatenate local parts
-    const localSize = localParts.reduce((a, p) => a + p.length, 0);
-    const centralSize = centralParts.reduce((a, p) => a + p.length, 0);
-
-    const eocd = new Uint8Array(22);
-    const edv = new DataView(eocd.buffer);
-    edv.setUint32(0, 0x06054b50, true); // signature
-    edv.setUint16(4, 0, true); // disk number
-    edv.setUint16(6, 0, true); // disk start
-    edv.setUint16(8, files.length, true); // entries on disk
-    edv.setUint16(10, files.length, true); // total entries
-    edv.setUint32(12, centralSize, true); // size of central dir
-    edv.setUint32(16, localSize, true); // offset of central dir
-    edv.setUint16(20, 0, true); // comment length
-
-    // Build final blob
-    const parts = [...localParts, ...centralParts, eocd];
-    return new Blob(parts, { type: 'application/zip' });
-  }
 });

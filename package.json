@@ -14,7 +14,9 @@
   },
   "jest": {
     "testEnvironment": "jsdom",
-    "setupFilesAfterEnv": ["<rootDir>/tests/setup.js"],
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.js"
+    ],
     "collectCoverageFrom": [
       "popup/popup.js",
       "scripts/utils.js"
@@ -23,5 +25,8 @@
       "/node_modules/",
       "/tests/"
     ]
+  },
+  "dependencies": {
+    "@google/gemini-cli": "^0.19.1"
   }
 }
