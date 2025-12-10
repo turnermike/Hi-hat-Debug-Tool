@@ -152,10 +152,14 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     if (!isRestricted) {
       const isDebugModeEnabled = await StorageManager.get('isDebugModeEnabled');
       if (isDebugModeEnabled) {
-        chrome.scripting.executeScript({
-          target: { tabId: tabId },
-          files: ['scripts/debug-injector.js']
-        });
+        chrome.tabs.sendMessage(tabId, { action: 'createBreakpointBox' });
+      } else {
+        chrome.tabs.sendMessage(tabId, { action: 'removeBreakpointBox' });
+        const url = new URL(tab.url);
+        if (url.searchParams.has('debug')) {
+          url.searchParams.delete('debug');
+          chrome.tabs.update(tabId, { url: url.toString() });
+        }
       }
     }
   }

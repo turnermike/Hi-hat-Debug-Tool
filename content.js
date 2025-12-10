@@ -1123,7 +1123,79 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     return true;
   }
+
+  if (request.action === 'createBreakpointBox') {
+    createBreakpointBox();
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (request.action === 'removeBreakpointBox') {
+    removeBreakpointBox();
+    sendResponse({ success: true });
+    return true;
+  }
 });
+
+function createBreakpointBox() {
+  const existingBox = document.getElementById('hihat-breakpoint-box');
+  if (existingBox) {
+    return;
+  }
+
+  const box = document.createElement('div');
+  box.id = 'hihat-breakpoint-box';
+  box.style.cssText = `
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    padding: 10px;
+    z-index: 9999;
+    font-family: sans-serif;
+    font-size: 14px;
+  `;
+  box.innerHTML = `
+    <strong>Screen Size:</strong>
+    <div id="hihat-screen-size"></div>
+  `;
+  document.body.appendChild(box);
+
+  const screenSizeDiv = document.getElementById('hihat-screen-size');
+  function updateScreenSize() {
+    screenSizeDiv.textContent = `${window.innerWidth}px x ${window.innerHeight}px`;
+  }
+
+  window.addEventListener('resize', updateScreenSize);
+  updateScreenSize();
+}
+
+function removeBreakpointBox() {
+  const box = document.getElementById('hihat-breakpoint-box');
+  if (box) {
+    box.remove();
+  }
+}
+
+// Add debug parameter to links
+document.addEventListener('click', (e) => {
+  const link = e.target.closest('a');
+  if (!link) {
+    return;
+  }
+
+  chrome.runtime.sendMessage({ action: 'getStorage', key: 'isDebugModeEnabled' }, ({ value }) => {
+    if (value) {
+      const url = new URL(link.href);
+      if (url.hostname === window.location.hostname) {
+        url.searchParams.set('debug', 'true');
+        link.href = url.href;
+      }
+    }
+  });
+}, true);
+
 
 // Clipboard functionality
 function copyToClipboard(text) {

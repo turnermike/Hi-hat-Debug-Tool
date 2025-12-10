@@ -1,7 +1,2 @@
-(() => {
-  const url = new URL(window.location.href);
-  if (url.searchParams.get('debug') !== 'true') {
-    url.searchParams.set('debug', 'true');
-    window.location.href = url.href;
-  }
-})();
+// This script is intentionally left blank.
+// It is used as a signal to the background script to execute code in the content script.
