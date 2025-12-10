@@ -119,10 +119,30 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true;
   }
+
+  if (request.action === 'toggleDebugMode') {
+    StorageManager.set('isDebugModeEnabled', request.enabled);
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (request.action === 'getStorage') {
+    StorageManager.get(request.key).then(value => {
+      sendResponse({ value });
+    });
+    return true;
+  }
+
+  if (request.action === 'setStorage') {
+    StorageManager.set(request.key, request.value).then(() => {
+      sendResponse({ success: true });
+    });
+    return true;
+  }
 });
 
 // Handle tab updates for WordPress detection
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   // Only act when the page has finished loading
   if (changeInfo.status === 'complete' && tab.url) {
     // Skip restricted pages
@@ -130,8 +150,13 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     const isRestricted = restrictedPrefixes.some(prefix => tab.url.startsWith(prefix));
     
     if (!isRestricted) {
-      // Could potentially inject content script here if needed
-      // or perform background WordPress detection
+      const isDebugModeEnabled = await StorageManager.get('isDebugModeEnabled');
+      if (isDebugModeEnabled) {
+        chrome.scripting.executeScript({
+          target: { tabId: tabId },
+          files: ['scripts/debug-injector.js']
+        });
+      }
     }
   }
 });

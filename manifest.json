@@ -16,7 +16,8 @@
     "downloads",
     "storage",
     "clipboardRead",
-    "browsingData"
+    "browsingData",
+    "scripting"
   ],
   "background": {
     "service_worker": "background.js"

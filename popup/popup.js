@@ -194,50 +194,33 @@ document.addEventListener('DOMContentLoaded', function () {
     }, 2000);
   }
 
+  // Get the current debug state and update the button
+  async function initializeDebugButton() {
+    const { value } = await chrome.runtime.sendMessage({ action: 'getStorage', key: 'isDebugModeEnabled' });
+    updateButtonState(addDebugBtn, value);
+  }
+
   addDebugBtn.addEventListener('click', async function () {
-    try {
-      // Get the current active tab
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const { value } = await chrome.runtime.sendMessage({ action: 'getStorage', key: 'isDebugModeEnabled' });
+    const newState = !value;
 
-      if (!tab || !tab.url) {
-        showStatus('Unable to get current tab URL', true);
-        return;
-      }
+    await chrome.runtime.sendMessage({ action: 'setStorage', key: 'isDebugModeEnabled', value: newState });
 
-      // Parse the current URL
-      const currentUrl = new URL(tab.url);
+    updateButtonState(addDebugBtn, newState);
+    showStatus(`Debug mode ${newState ? 'enabled' : 'disabled'}.`);
 
-      // Get current debug value if it exists
-      const currentDebugValue = currentUrl.searchParams.get('debug');
-
-      if (currentDebugValue === '1') {
-        // Change from ?debug=1 to ?debug=true
-        currentUrl.searchParams.set('debug', 'true');
-        showStatus('Changed to ?debug=true');
-      } else if (currentDebugValue === 'true') {
-        // Remove debug parameter
-        currentUrl.searchParams.delete('debug');
-        showStatus('Debug parameter removed');
-      } else {
-        // Add ?debug=1 (first state or if some other value exists)
-        currentUrl.searchParams.set('debug', '1');
-        showStatus('Added ?debug=1');
-      }
-
-      // Update the tab with the new URL
-      await chrome.tabs.update(tab.id, { url: currentUrl.toString() });
-
-      showStatus('Debug parameter added!');
-
-      // Close popup after successful action
-      setTimeout(() => {
-        window.close();
-      }, 1000);
-
-    } catch (error) {
-      showStatus('Error: ' + error.message, true);
+    // Reload the current tab to apply the changes
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab) {
+      chrome.tabs.reload(tab.id);
     }
+
+    setTimeout(() => {
+      window.close();
+    }, 1000);
   });
+
+  initializeDebugButton();
 
   clearFormsBtn.addEventListener('click', async function () {
     try {
