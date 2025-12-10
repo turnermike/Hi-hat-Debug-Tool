@@ -1166,14 +1166,18 @@ function createBreakpointBox() {
     const width = window.innerWidth;
     let breakpoint = '';
 
-    if (width > 1200) {
+    if (width >= 1400) {
+      breakpoint = 'XXL';
+    } else if (width >= 1200) {
       breakpoint = 'XL';
     } else if (width >= 992) {
       breakpoint = 'LG';
     } else if (width >= 768) {
       breakpoint = 'MD';
-    } else {
+    } else if (width >= 576) {
       breakpoint = 'SM';
+    } else {
+      breakpoint = 'XS'; // Assuming anything below SM is XS
     }
 
     box.innerHTML = `
