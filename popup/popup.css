@@ -85,6 +85,11 @@ body {
   background-color: #dbeafe;
 }
 
+.debug-button.active {
+  background-color: #2563eb; /* A blue background to match the border-color of .wp-button.debug-button */
+  color: white;
+}
+
 .clear-button {
   background-color: #fef2f2;
 }
