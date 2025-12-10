@@ -1149,26 +1149,41 @@ function createBreakpointBox() {
     position: fixed;
     top: 10px;
     right: 10px;
-    background-color: #fff;
-    border: 1px solid #ccc;
-    padding: 10px;
-    z-index: 9999;
-    font-family: sans-serif;
-    font-size: 14px;
-  `;
-  box.innerHTML = `
-    <strong>Screen Size:</strong>
-    <div id="hihat-screen-size"></div>
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    border-radius: 5px;
+    padding: 8px 12px;
+    z-index: 99999;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: right;
+    pointer-events: none;
   `;
   document.body.appendChild(box);
 
-  const screenSizeDiv = document.getElementById('hihat-screen-size');
-  function updateScreenSize() {
-    screenSizeDiv.textContent = `${window.innerWidth}px x ${window.innerHeight}px`;
+  function updateBreakpointBox() {
+    const width = window.innerWidth;
+    let breakpoint = '';
+
+    if (width > 1200) {
+      breakpoint = 'XL';
+    } else if (width >= 992) {
+      breakpoint = 'LG';
+    } else if (width >= 768) {
+      breakpoint = 'MD';
+    } else {
+      breakpoint = 'SM';
+    }
+
+    box.innerHTML = `
+      Breakpoint: <span style="font-weight: bold;">${breakpoint}</span><br>
+      Screen Width: <span style="font-weight: bold;">${width} PX</span>
+    `;
   }
 
-  window.addEventListener('resize', updateScreenSize);
-  updateScreenSize();
+  window.addEventListener('resize', updateBreakpointBox);
+  updateBreakpointBox();
 }
 
 function removeBreakpointBox() {
