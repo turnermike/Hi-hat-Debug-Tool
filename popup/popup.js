@@ -694,52 +694,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
       const currentUrl = new URL(tab.url);
 
-      // List of all parameters that this extension can add
-      const extensionParams = [
-        // Debug parameters
-        'debug',
-
-        // WordPress debug parameters
-        'WP_DEBUG',
-        'WPDEBUG',
-        'wp_debug',
-        'WP_DEBUG_LOG',
-        'WP_DEBUG_DISPLAY',
-        'debug_queries',
-        'query_debug',
-
-        // Cache parameters
-        'nocache',
-        'cache_bust',
-        'no_cache',
-        'v',
-        '_',
-
-        // User switching parameters
-        'simulate_user_role',
-        'user_switching',
-        'switch_to'
-      ];
-
-      let removedCount = 0;
-
-      // Remove all extension-added parameters
-      extensionParams.forEach(param => {
-        if (currentUrl.searchParams.has(param)) {
-          currentUrl.searchParams.delete(param);
-          removedCount++;
-        }
-      });
-
-      if (removedCount === 0) {
-        showStatus('No extension parameters found to remove');
+      // If there are no params, do nothing
+      if (currentUrl.search === '') {
+        showStatus('No parameters to remove.');
         return;
       }
+
+      // Remove all query parameters
+      currentUrl.search = '';
 
       // Update the tab with the cleaned URL
       await chrome.tabs.update(tab.id, { url: currentUrl.toString() });
 
-      showStatus(`Removed ${removedCount} parameter${removedCount !== 1 ? 's' : ''}`);
+      showStatus(`All URL parameters removed`);
 
       // Close popup after successful action
       setTimeout(() => {

@@ -115,6 +115,7 @@ describe('Clear Data Functionality', () => {
         url: 'not-a-valid-url'
       };
       chrome.tabs.query.mockResolvedValue([mockTab]);
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       const getCurrentOrigin = async () => {
         try {
@@ -131,6 +132,8 @@ describe('Clear Data Functionality', () => {
 
       const origin = await getCurrentOrigin();
       expect(origin).toBeNull();
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      consoleErrorSpy.mockRestore();
     });
 
     test('should correctly extract origin from different URL formats', async () => {
@@ -233,11 +236,10 @@ describe('Clear Data Functionality', () => {
       chrome.tabs.query.mockResolvedValue([mockTab]);
       
       let resolveCache;
-      chrome.browsingData.removeCache.mockImplementation(() => {
-        return new Promise(resolve => {
-          resolveCache = resolve;
-        });
+      const cachePromise = new Promise(resolve => {
+        resolveCache = resolve;
       });
+      chrome.browsingData.removeCache.mockImplementation(() => cachePromise);
 
       const getCurrentOrigin = async () => {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -409,9 +411,6 @@ describe('Clear Data Functionality', () => {
       chrome.browsingData.remove.mockResolvedValue(undefined);
       chrome.tabs.reload.mockResolvedValue(undefined);
 
-      // Use fake timers for setTimeout
-      jest.useFakeTimers();
-
       const getCurrentOrigin = async () => {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab && tab.url) {
@@ -465,12 +464,8 @@ describe('Clear Data Functionality', () => {
         }
       };
 
-      const clickPromise = handleClick();
+      await handleClick();
       
-      // Fast-forward timers
-      jest.advanceTimersByTime(500);
-      await clickPromise;
-
       expect(chrome.browsingData.remove).toHaveBeenCalledWith(
         { origins: ['https://example.com'] },
         {
@@ -487,15 +482,14 @@ describe('Clear Data Functionality', () => {
       expect(mockStatusDiv.textContent).toBe('All site data cleared! Reloading...');
       expect(mockClearAllDataBtn.innerHTML).toContain('✓ All Cleared!');
 
-      // Fast-forward to reload timer
-      jest.advanceTimersByTime(1500);
-      await Promise.resolve(); // Allow async operations to complete
+      // Since we are not using fake timers, we can't advance them.
+      // We will just wait for the timeout to complete.
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       expect(chrome.tabs.reload).toHaveBeenCalledWith(1);
       expect(window.close).toHaveBeenCalled();
 
-      jest.useRealTimers();
-    });
+    }, 10000);
 
     test('should handle error when clearing all data fails', async () => {
       const mockTab = { id: 1, url: 'https://example.com' };
@@ -659,11 +653,10 @@ describe('Clear Data Functionality', () => {
       chrome.tabs.query.mockResolvedValue([mockTab]);
       
       let resolveCache;
-      chrome.browsingData.removeCache.mockImplementation(() => {
-        return new Promise(resolve => {
-          resolveCache = resolve;
-        });
+      const cachePromise = new Promise(resolve => {
+        resolveCache = resolve;
       });
+      chrome.browsingData.removeCache.mockImplementation(() => cachePromise);
 
       const originalContent = mockClearCacheBtn.innerHTML;
       
