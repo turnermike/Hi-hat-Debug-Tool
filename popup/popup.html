@@ -27,20 +27,13 @@
         <span class="section-title">Tools</span>
       </div>
 
-      <div class="tool-description">
-        <p><strong>Debug:</strong> Appends or toggles a <code>?debug=1</code> parameter to the current URL for quick debugging.</p>
-        <p><strong>Clear Forms:</strong> Resets all form fields on the current page.</p>
-        <p><strong>Measure:</strong> Activates a tool to measure distances and sizes of elements on the current page.</p>
-        <p><strong>Scan:</strong> Initiates a basic security scan of the current page for common vulnerabilities.</p>
-      </div>
-
       <!-- Main Actions -->
       <div class="wp-button-grid">
         <table class="wp-button-table">
           <tr>
             <td class="wp-button-cell">
               <button id="addDebugBtn" class="wp-button debug-button">
-                <span class="wp-button-label">Debug</span>
+                <span class="wp-button-label">Toggle Debug Mode</span>
               </button>
             </td>
             <td class="wp-button-cell">
@@ -57,7 +50,7 @@
           <tr>
             <td class="wp-button-cell">
               <button id="scanBtn" class="wp-button scan-button">
-                <span class="wp-button-label">Scan</span>
+                <span class="wp-button-label">Vulnerability Scan</span>
               </button>
             </td>
             <td class="wp-button-cell">
@@ -76,7 +69,7 @@
           <svg class="section-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
           </svg>
-          <span class="section-title">Security Scan</span>
+          <span class="section-title">Vulnerability Scan</span>
         </div>
 
         <div id="scanResults" class="scan-results">
@@ -87,6 +80,14 @@
           <button id="rescanBtn" class="scan-action-btn rescan-btn">Re-scan</button>
           <button id="clearResultsBtn" class="scan-action-btn clear-btn">Clear</button>
         </div>
+      </div>
+
+      <!-- Button Descriptions -->
+      <div class="tool-description">
+        <p><strong>Debug Mode:</strong> Toggle debug URL param & show responsive breakpoint/width.</p>
+        <p><strong>Clear Forms</strong>Reset all input fields on the page.</p>
+        <p><strong>Measure:</strong> Activate an element ruler for pixel measurements.</p>
+        <p><strong>Vulnerability Scan:</strong> Check page for common security issues.</p>
       </div>
 
       <!-- Reset URL Parameters Section -->
@@ -302,7 +303,7 @@
             </tr>
           </table>
         </div>
-      </div>      
+      </div>
 
       <!-- Status Message -->
       <div id="status" class="status-message status-hidden"></div>
