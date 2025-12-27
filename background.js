@@ -144,15 +144,55 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     (async () => {
       try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        await chrome.scripting.executeScript({
+        
+        const contentScript = async (tabUrl, tabTitle) => {
+          const originalScrollX = window.scrollX;
+          const originalScrollY = window.scrollY;
+          const originalOverflow = document.body.style.overflow;
+          document.body.style.overflow = 'hidden';
+
+          window.scrollTo(0, 100000);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const pageHeight = window.scrollY + window.innerHeight + 300;
+          window.scrollTo(0, 0);
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          try {
+            const screenshots = [];
+            const viewportHeight = window.innerHeight;
+            let scrollY = 0;
+
+            while (scrollY < pageHeight) {
+              window.scrollTo(0, scrollY);
+              await new Promise(resolve => setTimeout(resolve, 500)); 
+              const dataUrl = await chrome.runtime.sendMessage({ action: 'captureVisibleTab' });
+              screenshots.push(dataUrl);
+              scrollY += viewportHeight;
+            }
+
+            chrome.runtime.sendMessage({ 
+              action: 'stitchScreenshots', 
+              screenshots, 
+              pageHeight, 
+              viewportHeight,
+              tabUrl,
+              tabTitle
+            });
+
+          } catch (error) {
+            // Handle error
+          } finally {
+            document.body.style.overflow = originalOverflow;
+            window.scrollTo(originalScrollX, originalScrollY);
+          }
+        };
+
+        chrome.scripting.executeScript({
           target: { tabId: tab.id },
-          files: ['scripts/scroll-and-stitch.js'],
+          func: contentScript,
+          args: [tab.url, tab.title],
         });
-        chrome.tabs.sendMessage(tab.id, { 
-          action: 'startFullPageScreenshot',
-          tabUrl: tab.url,
-          tabTitle: tab.title
-        });
+
       } catch (error) {
         console.error("Error starting full page screenshot:", error);
       }
