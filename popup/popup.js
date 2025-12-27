@@ -1156,5 +1156,11 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     
       fullPageScreenshotBtn.addEventListener('click', takeFullPageScreenshot);
-      viewportScreenshotBtn.addEventListener('click', takeViewportScreenshot);
-    });
+        viewportScreenshotBtn.addEventListener('click', takeViewportScreenshot);
+      
+        const scanAndCaptureBtn = document.getElementById('scanAndCaptureBtn');
+        scanAndCaptureBtn.addEventListener('click', () => {
+          showStatus('Scanning and capturing pages...');
+          chrome.runtime.sendMessage({ action: 'scanAndCapture' });
+        });
+      });
