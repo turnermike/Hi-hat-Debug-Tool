@@ -208,11 +208,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           const dataUrl = reader.result;
           console.log("Created data URL.");
 
-          const tabURL = new URL(tabUrl);
-          const domain = tabURL.hostname;
-          const pageName = tabTitle.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
-          const filename = `${domain}-${pageName}-full.png`;
-          console.log(`Generated filename: ${filename}`);
+                  const tabURL = new URL(tabUrl);
+                  let domain = tabURL.hostname;
+                  if (domain.startsWith('www.')) {
+                    domain = domain.substring(4); // Remove "www."
+                  }
+                  const sanitizedTitle = tabTitle.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
+                  const filename = `${domain}-${sanitizedTitle}-full.png`;          console.log(`Generated filename: ${filename}`);
 
           chrome.downloads.download({
             url: dataUrl,
