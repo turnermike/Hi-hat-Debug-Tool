@@ -14,17 +14,24 @@
   async function startScreenshotProcess(tabUrl, tabTitle) {
     const originalScrollX = window.scrollX;
     const originalScrollY = window.scrollY;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    // Scroll to a large number to find the maximum scroll position
+    window.scrollTo(0, 100000);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const pageHeight = window.scrollY + window.innerHeight + 300;
+    window.scrollTo(0, 0);
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     try {
       const screenshots = [];
-      const pageHeight = document.body.scrollHeight;
       const viewportHeight = window.innerHeight;
       let scrollY = 0;
 
       while (scrollY < pageHeight) {
         window.scrollTo(0, scrollY);
         
-        // Wait for the scroll to take effect and for the page to render
         await new Promise(resolve => setTimeout(resolve, 500)); 
 
         const dataUrl = await chrome.runtime.sendMessage({ action: 'captureVisibleTab' });
@@ -32,9 +39,6 @@
 
         scrollY += viewportHeight;
       }
-
-      // Restore original scroll position
-      window.scrollTo(originalScrollX, originalScrollY);
 
       // Send the collected screenshots to the background for stitching
       chrome.runtime.sendMessage({ 
@@ -48,9 +52,11 @@
 
       return { success: true };
     } catch (error) {
-      // Restore scroll position on error
-      window.scrollTo(originalScrollX, originalScrollY);
       return { success: false, error: error.message };
+    } finally {
+      // Restore original state
+      document.body.style.overflow = originalOverflow;
+      window.scrollTo(originalScrollX, originalScrollY);
     }
   }
 })();
