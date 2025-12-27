@@ -1,3 +1,4 @@
+/* Hi-hat Debug Tool Styles */
 /* Reset and base styles */
 * {
   box-sizing: border-box;
@@ -558,6 +559,14 @@ body {
 
 .wp-reset .wp-button-label {
   color: #e11d48;
+}
+
+/* Screenshots Section */
+.screenshots-section {
+  margin-top: 20px;
+  margin-bottom: 16px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 16px;
 }
 
 /* Vulnerability Scan Results */

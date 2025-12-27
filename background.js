@@ -139,6 +139,93 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true;
   }
+
+  if (request.action === 'fullPageScreenshot') {
+    (async () => {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['scripts/scroll-and-stitch.js'],
+        });
+        chrome.tabs.sendMessage(tab.id, { 
+          action: 'startFullPageScreenshot',
+          tabUrl: tab.url,
+          tabTitle: tab.title
+        });
+      } catch (error) {
+        console.error("Error starting full page screenshot:", error);
+      }
+    })();
+  }
+
+  if (request.action === 'captureVisibleTab') {
+    (async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+      sendResponse(dataUrl);
+    })();
+    return true;
+  }
+
+  if (request.action === 'stitchScreenshots') {
+    (async () => {
+      try {
+        console.log("Stitching screenshots...");
+        const { screenshots, pageHeight, viewportHeight, tabUrl, tabTitle } = request;
+
+        if (!screenshots || screenshots.length === 0) {
+          console.log("No screenshots to stitch.");
+          return;
+        }
+        console.log(`Received ${screenshots.length} screenshots.`);
+
+        const imageBitmaps = await Promise.all(
+          screenshots.map(async (dataUrl) => {
+            const response = await fetch(dataUrl);
+            const blob = await response.blob();
+            return await createImageBitmap(blob);
+          })
+        );
+        console.log("Created image bitmaps.");
+
+        const { width } = imageBitmaps[0];
+        const canvas = new OffscreenCanvas(width, pageHeight);
+        const ctx = canvas.getContext('2d');
+        console.log("Created canvas.");
+
+        for (let i = 0; i < imageBitmaps.length; i++) {
+          ctx.drawImage(imageBitmaps[i], 0, i * viewportHeight);
+        }
+        console.log("Drew images on canvas.");
+        
+        const blob = await canvas.convertToBlob();
+        console.log("Converted canvas to blob.");
+
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        reader.onloadend = () => {
+          const dataUrl = reader.result;
+          console.log("Created data URL.");
+
+          const tabURL = new URL(tabUrl);
+          const domain = tabURL.hostname;
+          const pageName = tabTitle.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+          const filename = `${domain}-${pageName}-full.png`;
+          console.log(`Generated filename: ${filename}`);
+
+          chrome.downloads.download({
+            url: dataUrl,
+            filename: filename,
+            saveAs: false
+          });
+          console.log("Download started.");
+        };
+      } catch (error) {
+        console.error("Error stitching screenshots:", error);
+      }
+    })();
+  }
 });
 
 // Handle tab updates for WordPress detection

@@ -1088,10 +1088,65 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.disabled = false;
         showCacheStatus('Cannot clear data on this page', true);
       }
-    } catch (error) {
-      btn.innerHTML = originalContent;
-      btn.disabled = false;
-      showCacheStatus('Error clearing all data: ' + error.message, true);
-    }
-  });
-});
+          } catch (error) {
+          btn.innerHTML = originalContent;
+          btn.disabled = false;
+          showCacheStatus('Error clearing all data: ' + error.message, true);
+        }
+      });
+    
+      // Screenshot functionality
+      const fullPageScreenshotBtn = document.getElementById('fullPageScreenshotBtn');
+      const viewportScreenshotBtn = document.getElementById('viewportScreenshotBtn');
+    
+      /**
+       * Downloads a screenshot.
+       * @param {string} screenshotUrl - The data URL of the screenshot.
+       * @param {string} filename - The desired filename for the downloaded file.
+       */
+      function downloadScreenshot(screenshotUrl, filename) {
+        const link = document.createElement('a');
+        link.href = screenshotUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    
+      /**
+       * Takes a screenshot of the visible part of the tab.
+       */
+      async function takeViewportScreenshot() {
+        try {
+          const [tab] = await chrome.tabs.query({
+            active: true,
+            currentWindow: true,
+          });
+          if (!tab) {
+            showStatus('Cannot access tab.', true);
+            return;
+          }
+    
+          const screenshotUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
+            format: 'png',
+          });
+          downloadScreenshot(
+            screenshotUrl,
+            `viewport-screenshot-${new Date().toISOString()}.png`
+          );
+        } catch (error) {
+          showStatus('Error taking viewport screenshot.', true);
+        }
+      }
+    
+      /**
+       * Takes a screenshot of the full page.
+       */
+      async function takeFullPageScreenshot() {
+        showStatus('Taking full page screenshot...');
+        chrome.runtime.sendMessage({ action: 'fullPageScreenshot' });
+      }
+    
+      fullPageScreenshotBtn.addEventListener('click', takeFullPageScreenshot);
+      viewportScreenshotBtn.addEventListener('click', takeViewportScreenshot);
+    });
