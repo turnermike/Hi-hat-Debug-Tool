@@ -1127,14 +1127,22 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
           }
     
-          const screenshotUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
-            format: 'png',
-          });
-          downloadScreenshot(
-            screenshotUrl,
-            `viewport-screenshot-${new Date().toISOString()}.png`
-          );
-        } catch (error) {
+                const screenshotUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
+                  format: 'png',
+                });
+                
+                const tabURL = new URL(tab.url);
+                let domain = tabURL.hostname;
+                if (domain.startsWith('www.')) {
+                  domain = domain.substring(4); // Remove "www."
+                }
+                const sanitizedTitle = tab.title.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
+                const filename = `${domain}-${sanitizedTitle}-viewport.png`;
+          
+                downloadScreenshot(
+                  screenshotUrl,
+                  filename
+                );        } catch (error) {
           showStatus('Error taking viewport screenshot.', true);
         }
       }
