@@ -5,6 +5,88 @@ importScripts('/lib/jszip.js');
  * Handles extension lifecycle events and provides service worker functionality
  */
 
+const screenshotPromises = new Map();
+
+async function contentScript(tabUrl, tabTitle) {
+  const originalScrollX = window.scrollX;
+  const originalScrollY = window.scrollY;
+
+  // Ensure scrolling is not blocked
+  document.body.style.overflow = '';
+  document.documentElement.style.overflow = '';
+
+  // Store original styles of fixed/sticky elements and hide them
+  const fixedElements = [];
+  document.querySelectorAll('*').forEach(element => {
+    const style = window.getComputedStyle(element);
+    if (style.position === 'fixed' || style.position === 'sticky') {
+      fixedElements.push({
+        element: element,
+        originalPosition: style.position,
+        originalVisibility: style.visibility
+      });
+      element.style.setProperty('position', 'static', 'important');
+      element.style.setProperty('visibility', 'hidden', 'important');
+    }
+  });
+
+  // Pre-scrolling logic to trigger lazy loading
+  window.scrollTo(0, document.body.scrollHeight);
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  window.scrollTo(0, 0);
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  try {
+    const screenshots = [];
+    const viewportHeight = window.innerHeight;
+    const pageHeight = document.documentElement.scrollHeight; 
+    let scrollY = 0;
+
+    // Ensure we start at the top
+    window.scrollTo(0, 0);
+    await new Promise(resolve => setTimeout(resolve, 500)); 
+
+    while (scrollY < pageHeight) {
+      window.scrollTo(0, scrollY);
+      await new Promise(resolve => setTimeout(resolve, 500)); 
+
+      const dataUrl = await chrome.runtime.sendMessage({ action: 'captureVisibleTab' });
+      screenshots.push(dataUrl);
+
+      scrollY += viewportHeight;
+    }
+
+    // After the loop, explicitly scroll to the very bottom and take one last screenshot
+    // This handles pages where pageHeight is not a multiple of viewportHeight
+    // And ensures the absolute bottom is captured.
+    if (pageHeight > viewportHeight) { // Only if page is taller than one viewport
+      window.scrollTo(0, pageHeight - viewportHeight);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const lastDataUrl = await chrome.runtime.sendMessage({ action: 'captureVisibleTab' });
+      screenshots.push(lastDataUrl);
+    }
+
+    chrome.runtime.sendMessage({
+      action: 'stitchScreenshots',
+      screenshots,
+      pageHeight, // Use the standard pageHeight
+      viewportHeight,
+      tabUrl,
+      tabTitle
+    });
+
+  } catch (error) {
+    // Handle error
+  } finally {
+    // Restore original state of fixed/sticky elements
+    fixedElements.forEach(item => {
+      item.element.style.setProperty('position', item.originalPosition, 'important');
+      item.element.style.setProperty('visibility', item.originalVisibility, 'important');
+    });
+    window.scrollTo(originalScrollX, originalScrollY); // Restore original scroll
+  }
+}
+
 // Extension installation and update handler
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
@@ -141,7 +223,175 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true;
   }
+
+  if (request.action === 'captureVisibleTab') {
+    (async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+      sendResponse(dataUrl);
+    })();
+    return true;
+  }
+
+  if (request.action === 'stitchScreenshots') {
+    (async () => {
+      try {
+        const { screenshots, pageHeight, viewportHeight, tabUrl, tabTitle } = request;
+        const tabId = sender.tab.id;
+
+        if (!screenshots || screenshots.length === 0) {
+          if (screenshotPromises.has(tabId)) {
+            screenshotPromises.get(tabId).reject(new Error("No screenshots to stitch."));
+            screenshotPromises.delete(tabId);
+          }
+          return;
+        }
+
+        const imageBitmaps = await Promise.all(
+          screenshots.map(async (dataUrl) => {
+            const response = await fetch(dataUrl);
+            const blob = await response.blob();
+            return await createImageBitmap(blob);
+          })
+        );
+
+        const { width } = imageBitmaps[0];
+        const canvas = new OffscreenCanvas(width, pageHeight);
+        const ctx = canvas.getContext('2d');
+
+        for (let i = 0; i < imageBitmaps.length; i++) {
+          ctx.drawImage(imageBitmaps[i], 0, i * viewportHeight);
+        }
+        
+        const blob = await canvas.convertToBlob();
+        
+        const tabURL = new URL(tabUrl);
+        let domain = tabURL.hostname;
+        if (domain.startsWith('www.')) {
+          domain = domain.substring(4);
+        }
+        const sanitizedTitle = tabTitle.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
+        const filename = `${domain}-${sanitizedTitle}-full.png`;
+
+        if (screenshotPromises.has(tabId)) {
+          screenshotPromises.get(tabId).resolve({ filename, blob });
+          screenshotPromises.delete(tabId);
+        }
+
+      } catch (error) {
+        console.error("Error stitching screenshots:", error);
+        const tabId = sender.tab.id;
+        if (screenshotPromises.has(tabId)) {
+            screenshotPromises.get(tabId).reject(error);
+            screenshotPromises.delete(tabId);
+        }
+      }
+    })();
+  }
+  
+  if (request.action === 'fullPageScreenshot') {
+    (async () => {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        const { filename, blob } = await captureAndStitch(tab.id, tab.url, tab.title);
+        
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        reader.onloadend = () => {
+          const dataUrl = reader.result;
+          chrome.downloads.download({
+            url: dataUrl,
+            filename: filename,
+            saveAs: false
+          });
+        };
+
+      } catch (error) {
+        console.error("Error taking full page screenshot:", error);
+      }
+    })();
+  }
+
+  if (request.action === 'scanAndCapture') {
+    (async () => {
+      try {
+        const [mainTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        
+        const contentScriptReadyPromise = new Promise(resolve => {
+          const listener = (message) => {
+            if (message.action === 'findLinksScriptReady') {
+              chrome.runtime.onMessage.removeListener(listener);
+              resolve();
+            }
+          };
+          chrome.runtime.onMessage.addListener(listener);
+        });
+
+        await chrome.scripting.executeScript({
+          target: { tabId: mainTab.id },
+          files: ['scripts/find-links.js'],
+        });
+        await contentScriptReadyPromise; // Wait for the content script to be ready
+        
+        const { links } = await chrome.tabs.sendMessage(mainTab.id, { action: 'findNavLinks' });
+
+        const screenshotResults = await Promise.all(
+          links.map(async (link) => {
+            try {
+              const newTab = await chrome.tabs.create({ url: link, active: false });
+              await new Promise(resolve => {
+                const listener = (tabId, changeInfo) => {
+                  if (tabId === newTab.id && changeInfo.status === 'complete') {
+                    chrome.tabs.onUpdated.removeListener(listener);
+                    resolve();
+                  }
+                };
+                chrome.tabs.onUpdated.addListener(listener);
+              });
+              const createdTab = await chrome.tabs.get(newTab.id);
+              const result = await captureAndStitch(newTab.id, createdTab.url, createdTab.title);
+              chrome.tabs.remove(newTab.id);
+              return result;
+            } catch(e) {
+                console.error(`Failed to capture ${link}`, e);
+                return null;
+            }
+          })
+        );
+
+        const zip = new JSZip();
+        screenshotResults.filter(r => r).forEach(({filename, blob}) => {
+            zip.file(filename, blob);
+        });
+
+        const reader = new FileReader();
+        reader.readAsDataURL(zipBlob);
+        reader.onloadend = () => {
+          const dataUrl = reader.result;
+          chrome.downloads.download({
+            url: dataUrl,
+            filename: 'screenshots.zip',
+            saveAs: true
+          });
+        };
+
+      } catch (error) {
+        console.error("Error scanning and capturing:", error);
+      }
+    })();
+  }
 });
+
+function captureAndStitch(tabId, url, title) {
+    return new Promise((resolve, reject) => {
+        screenshotPromises.set(tabId, { resolve, reject });
+        chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            func: contentScript,
+            args: [url, title],
+        });
+    });
+}
 
 // Handle tab updates for WordPress detection
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {

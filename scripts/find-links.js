@@ -31,4 +31,7 @@
       sendResponse({ links });
     }
   });
+
+  // Signal to the background script that the content script is ready
+  chrome.runtime.sendMessage({ action: 'findLinksScriptReady' });
 })();
