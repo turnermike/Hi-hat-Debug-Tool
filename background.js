@@ -39,31 +39,27 @@ async function contentScript(tabUrl, tabTitle) {
   try {
     const screenshots = [];
     const viewportHeight = window.innerHeight;
-    const pageHeight = document.documentElement.scrollHeight; 
-    let scrollY = 0;
+    const pageHeight = document.documentElement.scrollHeight; // Standard height calculation
+    const numScrolls = Math.ceil(pageHeight / viewportHeight); // Calculate number of scrolls
 
     // Ensure we start at the top
     window.scrollTo(0, 0);
     await new Promise(resolve => setTimeout(resolve, 500)); 
 
-    while (scrollY < pageHeight) {
+    for (let i = 0; i < numScrolls; i++) {
+      let scrollY = i * viewportHeight;
+
+      // Adjust the last scroll position to precisely capture the remaining content at the bottom
+      if (scrollY + viewportHeight > pageHeight) {
+        scrollY = pageHeight - viewportHeight;
+        if (scrollY < 0) scrollY = 0; // Handle very short pages that fit in one viewport
+      }
+
       window.scrollTo(0, scrollY);
       await new Promise(resolve => setTimeout(resolve, 500)); 
 
       const dataUrl = await chrome.runtime.sendMessage({ action: 'captureVisibleTab' });
-      screenshots.push(dataUrl);
-
-      scrollY += viewportHeight;
-    }
-
-    // After the loop, explicitly scroll to the very bottom and take one last screenshot
-    // This handles pages where pageHeight is not a multiple of viewportHeight
-    // And ensures the absolute bottom is captured.
-    if (pageHeight > viewportHeight) { // Only if page is taller than one viewport
-      window.scrollTo(0, pageHeight - viewportHeight);
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const lastDataUrl = await chrome.runtime.sendMessage({ action: 'captureVisibleTab' });
-      screenshots.push(lastDataUrl);
+      screenshots.push({ dataUrl, scrollY });
     }
 
     chrome.runtime.sendMessage({
@@ -248,7 +244,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
 
         const imageBitmaps = await Promise.all(
-          screenshots.map(async (dataUrl) => {
+          screenshots.map(async ({ dataUrl }) => {
             const response = await fetch(dataUrl);
             const blob = await response.blob();
             return await createImageBitmap(blob);
@@ -260,7 +256,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const ctx = canvas.getContext('2d');
 
         for (let i = 0; i < imageBitmaps.length; i++) {
-          ctx.drawImage(imageBitmaps[i], 0, i * viewportHeight);
+          const { scrollY } = screenshots[i];
+          ctx.drawImage(imageBitmaps[i], 0, scrollY);
         }
         
         const blob = await canvas.convertToBlob();
