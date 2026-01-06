@@ -1,22 +1,16 @@
 # Hi-hat Debug Tool
 
-A small, practical Chrome extension to speed up web debugging and site troubleshooting. It provides quick toggles for debug query parameters, form clearing, page measurements, site-scoped data clearing, and an on-page security scan. Useful for developers, QA, and security researchers.
-
-## Quick links
-
-- Source: repository root
-- Popup UI: [popup/popup.html](popup/popup.html#L1)
-- Extension manifest: [manifest.json](manifest.json#L1)
+A compact Chrome extension that provides developer-focused utilities for debugging, site troubleshooting, and lightweight client-side security checks. Designed for web developers, QA engineers, and security researchers who need fast, origin-scoped tools.
 
 ## Features
 
-- Smart Debug Parameters: toggle `debug` query values (cycles `?debug=1` → `?debug=true` → remove)
-- Reset URL Params: remove extension-added and common debug/query params
+- Smart Debug Parameters: cycle `?debug=1` → `?debug=true` → remove
+- Reset URL Params: remove common and extension-added debug/query params
 - Form Clearing: clear inputs, textareas, selects, checkboxes, radios and contentEditable areas
 - Page Measurement: click-and-drag pixel measurements copied to clipboard
 - Site-Scoped Clear Data: clear cache, cookies, localStorage, indexedDB, service workers and more for the current origin
-- Vulnerability Scan: client-side checks for common issues (mixed content, missing headers, XSS surface, exposed data patterns)
-- WordPress Helpers: automatically-visible tools when WordPress is detected (WP debug toggles, cache busting, user-role simulation if supported)
+- Vulnerability Scan: lightweight client-side checks for common issues (mixed content, missing headers, XSS surface, exposed data patterns)
+- WordPress Helpers: extra tools when WordPress is detected (debug toggles, cache busting, optional role simulation)
 
 ## Installation
 
@@ -25,81 +19,94 @@ Install as an unpacked extension (developer mode):
 1. Clone the repository:
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/<your-org>/<your-repo>.git
 cd debug-extension
 ```
 
 2. Open Chrome extensions: `chrome://extensions/`
-3. Enable Developer mode (top-right)
-4. Click "Load unpacked" and select the repository folder
+3. Enable **Developer mode** (top-right)
+4. Click **Load unpacked** and select this repository folder
 
-For distribution, package a ZIP of the extension and publish a release on GitHub or load via the Chrome Web Store.
+To distribute, create a ZIP release on GitHub or submit the packaged extension to the Chrome Web Store.
 
-## Usage (quick)
+## Usage
 
-1. Open any website
-2. Click the extension icon to open the popup
-3. Use the buttons for the task you need:
-   - Debug: cycle debug query values
-   - Reset URL Params: remove debug/cache/user parameters
-   - Clear Data: remove site-scoped cache and storage types
-   - Measure: click-and-drag to measure elements
-   - Scan: run a quick client-side security analysis of the page
+1. Open any website in Chrome.
+2. Click the extension icon to open the popup.
+3. Use the controls in the popup:
+   - **Debug** — cycle debug query values on the current URL.
+   - **Reset URL Params** — remove common debug/cache/query parameters.
+   - **Clear Data** — clear site-scoped storage and cache for the current origin.
+   - **Measure** — click-and-drag to measure pixel distances on the page.
+   - **Scan** — run a lightweight client-side security scan of the page.
 
 ## Files of interest
 
-- [manifest.json](manifest.json#L1) — extension config and permissions
+- [manifest.json](manifest.json#L1) — extension configuration and permissions
 - [background.js](background.js#L1) — background/service worker logic
-- [content.js](content.js#L1) — page analysis and DOM actions
-- [popup/popup.html](popup/popup.html#L1), [popup/popup.js](popup/popup.js#L1) — UI and popup logic
-- [scripts/utils.js](scripts/utils.js#L1) — shared helpers
+- [content.js](content.js#L1) — content-script actions and page analysis
+- [popup/popup.html](popup/popup.html#L1) and [popup/popup.js](popup/popup.js#L1) — popup UI and behavior
+- [scripts/utils.js](scripts/utils.js#L1) — shared helper utilities
 
 ## How it works (high level)
 
-- The popup UI calls the background script and content scripts to perform actions on the active tab using the Chrome Extensions API.
-- Site-scoped clearing uses the `browsingData` API restricted to the current origin.
-- WordPress detection inspects DOM markers (admin bar, meta generator, `wp-content` paths) to conditionally show WP tools.
-- The vulnerability scan is a lightweight client-side DOM analysis (not a replacement for a full security audit).
+- The popup UI communicates with the background script and content script using the Chrome Extensions messaging and Tabs APIs.
+- Site-scoped clearing uses Chrome's `browsingData` methods restricted to the active origin.
+- WordPress detection inspects common DOM markers (admin bar, meta generator tag, `wp-content` paths) to show WP-specific helpers.
+- The vulnerability scan performs client-side DOM checks and pattern matching — this is a convenience tool and not a full security audit.
 
 ## Development
 
-Prerequisites: Node.js (for tests), Google Chrome
+Prerequisites: Node.js (for tests and tooling), Google Chrome
 
-Local workflow:
+Setup:
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/<your-org>/<your-repo>.git
+cd debug-extension
 npm install
-# Make edits
-# Reload the extension at chrome://extensions/ (Reload button)
 ```
+
+Work cycle:
+
+- Make changes to source files
+- Reload the extension from `chrome://extensions/` → Reload
 
 ### Tests
 
-The repo includes unit tests for critical features. Run tests with:
+Run unit tests (Jest):
 
 ```bash
 npm test
 ```
 
-See the `tests/` directory for test files and test helpers.
+See the `tests/` directory for test files and mock setup.
 
 ## Contributing
 
-Contributions are welcome. Please:
+Contributions and bug reports are welcome.
 
 1. Fork the repository
-2. Create a feature branch
-3. Run tests locally (`npm test`)
-4. Open a pull request with a clear description
+2. Create a topic branch (feature/ or fix/)
+3. Run tests locally and add tests for new behavior
+4. Open a pull request describing the change
 
 ## License
 
-MIT
+This project is released under the MIT License.
 
 ## Support
 
-Open an issue in the repository for feature requests or bug reports.
+Open an issue in the repository for bugs or feature requests. Include steps to reproduce and Chrome version where applicable.
+
+---
+
+If you'd like, I can also:
+
+- remove or consolidate the duplicate content in `tests/README.md`
+- update the repository `package.json` README fields or add GitHub release notes
+
+Would you like me to commit this README change to the repo now?
 
 # Hi-hat Debug Tool
 
