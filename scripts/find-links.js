@@ -3,26 +3,46 @@
  */
 (function() {
   const findNavLinks = () => {
-    const selectors = ['nav', '[role="navigation"]', '.nav', '.menu', '#nav', '#menu'];
+    const navSelectors = [
+      'nav',
+      '[role="navigation"]',
+      '.nav',
+      '.menu',
+      '#nav',
+      '#menu',
+      '.navigation',
+      '#navigation',
+      '[class*="nav-"]',
+      '[class*="-nav"]',
+      '[class*="menu-"]',
+      '[class*="-menu"]'
+    ];
     let navLinks = [];
+    const pageUrl = new URL(window.location.href);
 
-    selectors.forEach(selector => {
-      const elements = document.querySelectorAll(selector);
-      elements.forEach(element => {
-        const links = element.getElementsByTagName('a');
-        for (let link of links) {
-          if (link.href) {
-            navLinks.push(link.href);
+    const navElements = document.querySelectorAll(navSelectors.join(','));
+
+    navElements.forEach(navElement => {
+      const links = navElement.getElementsByTagName('a');
+      for (let link of links) {
+        if (link.href) {
+          try {
+            const linkUrl = new URL(link.href, pageUrl.origin);
+            // Only include links that are on the same domain
+            if (linkUrl.hostname === pageUrl.hostname) {
+              navLinks.push(linkUrl.href);
+            }
+          } catch (e) {
+            // Ignore invalid URLs
           }
         }
-      });
+      }
     });
 
-    // Filter duplicates and non-http links
+    // Remove duplicates
     const uniqueLinks = [...new Set(navLinks)];
-    const absoluteLinks = uniqueLinks.filter(link => link.startsWith('http'));
 
-    return absoluteLinks;
+    return uniqueLinks;
   };
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

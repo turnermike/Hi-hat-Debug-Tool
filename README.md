@@ -1,10 +1,217 @@
 # Hi-hat Debug Tool
 
+A small, practical Chrome extension to speed up web debugging and site troubleshooting. It provides quick toggles for debug query parameters, form clearing, page measurements, site-scoped data clearing, and an on-page security scan. Useful for developers, QA, and security researchers.
+
+## Quick links
+
+- Source: repository root
+- Popup UI: [popup/popup.html](popup/popup.html#L1)
+- Extension manifest: [manifest.json](manifest.json#L1)
+
+## Features
+
+- Smart Debug Parameters: toggle `debug` query values (cycles `?debug=1` → `?debug=true` → remove)
+- Reset URL Params: remove extension-added and common debug/query params
+- Form Clearing: clear inputs, textareas, selects, checkboxes, radios and contentEditable areas
+- Page Measurement: click-and-drag pixel measurements copied to clipboard
+- Site-Scoped Clear Data: clear cache, cookies, localStorage, indexedDB, service workers and more for the current origin
+- Vulnerability Scan: client-side checks for common issues (mixed content, missing headers, XSS surface, exposed data patterns)
+- WordPress Helpers: automatically-visible tools when WordPress is detected (WP debug toggles, cache busting, user-role simulation if supported)
+
+## Installation
+
+Install as an unpacked extension (developer mode):
+
+1. Clone the repository:
+
+```bash
+git clone <your-repo-url>
+cd debug-extension
+```
+
+2. Open Chrome extensions: `chrome://extensions/`
+3. Enable Developer mode (top-right)
+4. Click "Load unpacked" and select the repository folder
+
+For distribution, package a ZIP of the extension and publish a release on GitHub or load via the Chrome Web Store.
+
+## Usage (quick)
+
+1. Open any website
+2. Click the extension icon to open the popup
+3. Use the buttons for the task you need:
+   - Debug: cycle debug query values
+   - Reset URL Params: remove debug/cache/user parameters
+   - Clear Data: remove site-scoped cache and storage types
+   - Measure: click-and-drag to measure elements
+   - Scan: run a quick client-side security analysis of the page
+
+## Files of interest
+
+- [manifest.json](manifest.json#L1) — extension config and permissions
+- [background.js](background.js#L1) — background/service worker logic
+- [content.js](content.js#L1) — page analysis and DOM actions
+- [popup/popup.html](popup/popup.html#L1), [popup/popup.js](popup/popup.js#L1) — UI and popup logic
+- [scripts/utils.js](scripts/utils.js#L1) — shared helpers
+
+## How it works (high level)
+
+- The popup UI calls the background script and content scripts to perform actions on the active tab using the Chrome Extensions API.
+- Site-scoped clearing uses the `browsingData` API restricted to the current origin.
+- WordPress detection inspects DOM markers (admin bar, meta generator, `wp-content` paths) to conditionally show WP tools.
+- The vulnerability scan is a lightweight client-side DOM analysis (not a replacement for a full security audit).
+
+## Development
+
+Prerequisites: Node.js (for tests), Google Chrome
+
+Local workflow:
+
+```bash
+git clone <your-repo-url>
+npm install
+# Make edits
+# Reload the extension at chrome://extensions/ (Reload button)
+```
+
+### Tests
+
+The repo includes unit tests for critical features. Run tests with:
+
+```bash
+npm test
+```
+
+See the `tests/` directory for test files and test helpers.
+
+## Contributing
+
+Contributions are welcome. Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Run tests locally (`npm test`)
+4. Open a pull request with a clear description
+
+## License
+
+MIT
+
+## Support
+
+Open an issue in the repository for feature requests or bug reports.
+
+# Hi-hat Debug Tool
+
+A small, practical Chrome extension to speed up web debugging and site troubleshooting. It provides quick toggles for debug query parameters, form clearing, page measurements, site-scoped data clearing, and an on-page security scan. Useful for developers, QA, and security researchers.
+
+## Quick links
+
+- Source: repository root
+- Popup UI: [popup/popup.html](popup/popup.html#L1)
+- Extension manifest: [manifest.json](manifest.json#L1)
+
+## Features
+
+- Smart Debug Parameters: toggle `debug` query values (cycles `?debug=1` → `?debug=true` → remove)
+- Reset URL Params: remove extension-added and common debug/query params
+- Form Clearing: clear inputs, textareas, selects, checkboxes, radios and contentEditable areas
+- Page Measurement: click-and-drag pixel measurements copied to clipboard
+- Site-Scoped Clear Data: clear cache, cookies, localStorage, indexedDB, service workers and more for the current origin
+- Vulnerability Scan: client-side checks for common issues (mixed content, missing headers, XSS surface, exposed data patterns)
+- WordPress Helpers: automatically-visible tools when WordPress is detected (WP debug toggles, cache busting, user-role simulation if supported)
+
+## Installation
+
+Install as an unpacked extension (developer mode):
+
+1. Clone the repository:
+
+```bash
+git clone <your-repo-url>
+cd debug-extension
+```
+
+2. Open Chrome extensions: `chrome://extensions/`
+3. Enable Developer mode (top-right)
+4. Click "Load unpacked" and select the repository folder
+
+For distribution, package a ZIP of the extension and publish a release on GitHub or load via the Chrome Web Store.
+
+## Usage (quick)
+
+1. Open any website
+2. Click the extension icon to open the popup
+3. Use the buttons for the task you need:
+   - Debug: cycle debug query values
+   - Reset URL Params: remove debug/cache/user parameters
+   - Clear Data: remove site-scoped cache and storage types
+   - Measure: click-and-drag to measure elements
+   - Scan: run a quick client-side security analysis of the page
+
+## Files of interest
+
+- [manifest.json](manifest.json#L1) — extension config and permissions
+- [background.js](background.js#L1) — background/service worker logic
+- [content.js](content.js#L1) — page analysis and DOM actions
+- [popup/popup.html](popup/popup.html#L1), [popup/popup.js](popup/popup.js#L1) — UI and popup logic
+- [scripts/utils.js](scripts/utils.js#L1) — shared helpers
+
+## How it works (high level)
+
+- The popup UI calls the background script and content scripts to perform actions on the active tab using the Chrome Extensions API.
+- Site-scoped clearing uses the `browsingData` API restricted to the current origin.
+- WordPress detection inspects DOM markers (admin bar, meta generator, `wp-content` paths) to conditionally show WP tools.
+- The vulnerability scan is a lightweight client-side DOM analysis (not a replacement for a full security audit).
+
+## Development
+
+Prerequisites: Node.js (for tests), Google Chrome
+
+Local workflow:
+
+```bash
+git clone <your-repo-url>
+npm install
+# Make edits
+# Reload the extension at chrome://extensions/ (Reload button)
+```
+
+### Tests
+
+The repo includes unit tests for critical features. Run tests with:
+
+```bash
+npm test
+```
+
+See the `tests/` directory for test files and test helpers.
+
+## Contributing
+
+Contributions are welcome. Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Run tests locally (`npm test`)
+4. Open a pull request with a clear description
+
+## License
+
+MIT
+
+## Support
+
+Open an issue in the repository for feature requests or bug reports.
+
+# Hi-hat Debug Tool
+
 A comprehensive Chrome extension that provides essential debugging, security, and development utilities with simple one-click actions. Features smart parameter management with easy reset functionality. Perfect for web developers, security researchers, and QA professionals.
 
 ## Features
 
 ### Core Debug Tools
+
 - 🚀 **Smart Debug Parameters** - Cycles through `?debug=1` → `?debug=true` → remove
 - 🧹 **Form Field Clearing** - Clear all form fields with framework compatibility (React, Vue, etc.)
 - 📏 **Page Measurement Tool** - Click and drag to measure elements with pixel-perfect accuracy
@@ -12,6 +219,7 @@ A comprehensive Chrome extension that provides essential debugging, security, an
 - 🔄 **Reset Query Params** - Remove all extension-added URL parameters in one click
 
 ### WordPress-Specific Tools
+
 - 🔍 **Auto WordPress Detection** - Automatically detects WordPress sites
 - ⚙️ **WordPress Debug Mode** - Enable WP_DEBUG, WP_DEBUG_LOG, WP_DEBUG_DISPLAY
 - 🗄️ **Query Debug** - Enable database query debugging
@@ -19,6 +227,7 @@ A comprehensive Chrome extension that provides essential debugging, security, an
 - 👥 **User Role Switching** - Simulate different user roles (when plugin detected)
 
 ### Clear Cache Tools
+
 - 🗑️ **Site-Specific Cache Clearing** - Clear cache, cookies, storage, and more for the current site
 - 📦 **Multiple Data Types** - Cache, Cookies, Local Storage, IndexedDB, Service Workers, Cache Storage, Form Data, Web SQL
 - 🎯 **Origin-Based** - Only clears data for the current website origin, not global browser cache
@@ -53,14 +262,16 @@ A comprehensive Chrome extension that provides essential debugging, security, an
 ### Core Debug Tools
 
 #### Smart Debug Parameters
+
 1. Navigate to any website
 2. Click the Hi-hat Debug Tool extension icon
 3. Click the "Debug" button to cycle through:
    - First click: Adds `?debug=1`
-   - Second click: Changes to `?debug=true` 
+   - Second click: Changes to `?debug=true`
    - Third click: Removes debug parameter
 
 #### Form Field Clearing
+
 1. Navigate to any website with forms
 2. Click the "Clear" button
 3. All form fields are instantly cleared:
@@ -71,6 +282,7 @@ A comprehensive Chrome extension that provides essential debugging, security, an
    - Compatible with React, Vue, and other frameworks
 
 #### Page Measurement Tool
+
 1. Click the "Measure" button
 2. Click and drag on the page to measure elements
 3. Measurements are displayed in pixels and copied to clipboard
@@ -78,6 +290,7 @@ A comprehensive Chrome extension that provides essential debugging, security, an
 5. Click "Measure" again to exit measurement mode
 
 #### Vulnerability Scanner
+
 1. Click the "Scan" button to analyze the current page
 2. Results appear in the Security Scan section showing:
    - **Critical:** XSS potential, exposed sensitive data
@@ -88,22 +301,26 @@ A comprehensive Chrome extension that provides essential debugging, security, an
 
 ### WordPress-Specific Tools
 
-*WordPress tools automatically appear when a WordPress site is detected*
+_WordPress tools automatically appear when a WordPress site is detected_
 
 #### WordPress Debug Features
+
 - **WP Debug:** Enables comprehensive WordPress debugging
 - **Query Debug:** Shows database query information
 - **No Cache:** Adds cache-busting parameters
 
 #### User Role Switching
-*Available when User Switching plugin is detected*
+
+_Available when User Switching plugin is detected_
+
 - **Admin:** Simulate administrator role
-- **Editor:** Simulate editor role  
+- **Editor:** Simulate editor role
 - **Switch Off:** Remove role simulation
 
 ### URL Cleanup
 
 #### Reset Query Params
+
 1. Click the "Reset URL Params" button to clean up the URL
 2. Removes all extension-added parameters including:
    - Debug parameters (`debug`)
@@ -115,20 +332,25 @@ A comprehensive Chrome extension that provides essential debugging, security, an
 ### Clear Cache Tools
 
 #### How Cache Clearing Works
+
 The extension clears **site-specific** data for the current website's origin using Chrome's `browsingData` API. This is different from clearing Chrome's global disk cache.
 
 **What gets cleared:**
+
 - HTTP cache entries for the current website
 - Memory-cached resources for the current origin
 - Cookies, local storage, and other site-specific data
 
 **What doesn't get cleared:**
+
 - Global Chrome disk cache at `~/Library/Caches/Google/Chrome/`
 - Cache for other websites
 - Shared cache resources
 
 #### Verifying Cache Clearing
+
 To confirm the cache button is working:
+
 1. Open DevTools (F12) → Network tab
 2. Ensure "Disable cache" is unchecked
 3. Load a page with resources (images, CSS, JS)
@@ -138,6 +360,7 @@ To confirm the cache button is working:
 7. Resources should re-download with 200 status instead of loading from cache
 
 #### Available Clear Options
+
 - **Cache:** HTTP cache for current site
 - **Cookies:** Site cookies and session data
 - **Local Storage:** LocalStorage data
@@ -153,18 +376,21 @@ To confirm the cache button is working:
 The extension uses Chrome's Extension API to provide comprehensive debugging capabilities:
 
 ### Debug Parameter Management
+
 - Intelligent URL parsing and parameter manipulation
 - Smart cycling through debug states (`?debug=1` → `?debug=true` → remove)
 - Preserves existing URL parameters and structure
 - One-click reset removes all extension-added parameters
 
 ### WordPress Detection
+
 - Analyzes page content for WordPress indicators
 - Detects admin bar, generator meta tags, wp-content paths
 - Identifies installed plugins (User Switching, etc.)
 - Shows relevant tools only on WordPress sites
 
 ### Vulnerability Scanning
+
 - Client-side security analysis using DOM inspection
 - Checks for 10+ common security issues:
   - Missing HTTPS, CSRF protection, security headers
@@ -174,6 +400,7 @@ The extension uses Chrome's Extension API to provide comprehensive debugging cap
   - Outdated JavaScript libraries
 
 ### Form Clearing & Measurement
+
 - Advanced form field detection and clearing
 - Framework compatibility (React, Vue, Angular)
 - Canvas-based measurement overlay
@@ -211,10 +438,11 @@ The extension uses Chrome's Extension API to provide comprehensive debugging cap
 ### Security Features
 
 The vulnerability scanner detects:
+
 - **Insecure Connections:** HTTP vs HTTPS usage
 - **CSRF Vulnerabilities:** Missing token protection in forms
 - **XSS Potential:** Suspicious URL parameters and content
-- **Mixed Content:** HTTP resources on HTTPS pages  
+- **Mixed Content:** HTTP resources on HTTPS pages
 - **Missing Security Headers:** CSP, X-Frame-Options, etc.
 - **Exposed Sensitive Data:** API keys, tokens, passwords
 - **Clickjacking Risks:** Missing frame protection
@@ -266,21 +494,25 @@ npm run test:coverage
 The test suite includes 23+ unit tests covering:
 
 - **getCurrentOrigin Function**
+
   - Origin extraction from active tabs
   - Error handling for invalid URLs
   - Support for various URL formats (http/https, localhost, subdomains, custom ports)
 
 - **Clear Cache Functionality**
+
   - Browser cache clearing for current origin
   - Loading states and button updates
   - Error handling for restricted pages
 
 - **Clear Cookies Functionality**
+
   - Cookie removal for current origin
   - Permission error handling
   - Status message display
 
 - **Clear All Data Functionality**
+
   - Comprehensive data removal (cache, cookies, localStorage, indexedDB, serviceWorkers, etc.)
   - Tab reload after clearing
   - Popup auto-close behavior
