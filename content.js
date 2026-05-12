@@ -1207,6 +1207,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse({ success: true });
     return true;
   }
+
+  if (request.action === 'removeUrlParameters') {
+    try {
+      const currentUrl = new URL(window.location.href);
+      
+      // If there are no params, just return
+      if (currentUrl.search === '') {
+        sendResponse({ success: true, message: 'No parameters to remove' });
+        return true;
+      }
+      
+      // Remove all query parameters
+      currentUrl.search = '';
+      
+      // Update the URL without reloading
+      window.history.replaceState({}, '', currentUrl.toString());
+      
+      sendResponse({ success: true, message: 'All URL parameters removed' });
+    } catch (error) {
+      sendResponse({ success: false, message: 'Error removing parameters: ' + error.message });
+    }
+    return true;
+  }
 });
 
 function createBreakpointBox() {

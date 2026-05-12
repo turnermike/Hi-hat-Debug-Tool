@@ -684,18 +684,28 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
       }
 
-      // Remove all query parameters
-      currentUrl.search = '';
+      // Send message to content script to remove parameters without reloading
+      try {
+        const response = await chrome.tabs.sendMessage(tab.id, { action: 'removeUrlParameters' });
 
-      // Update the tab with the cleaned URL
-      await chrome.tabs.update(tab.id, { url: currentUrl.toString() });
-
-      showStatus(`All URL parameters removed`);
-
-      // Close popup after successful action
-      setTimeout(() => {
-        window.close();
-      }, 1000);
+        if (response && response.success) {
+          showStatus('All URL parameters removed');
+          // Close popup after successful action
+          setTimeout(() => {
+            window.close();
+          }, 800);
+        } else {
+          showStatus(response ? response.message : 'Failed to remove parameters', true);
+        }
+      } catch (messageError) {
+        // Content script not available, fallback to page reload
+        currentUrl.search = '';
+        await chrome.tabs.update(tab.id, { url: currentUrl.toString() });
+        showStatus('Parameters removed (page reloaded)');
+        setTimeout(() => {
+          window.close();
+        }, 1000);
+      }
 
     } catch (error) {
       showStatus('Error: ' + error.message, true);
