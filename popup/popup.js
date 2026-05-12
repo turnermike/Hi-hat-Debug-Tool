@@ -12,11 +12,6 @@ document.addEventListener('DOMContentLoaded', function () {
   const resetParamsBtn = document.getElementById('resetParamsBtn');
   const statusDiv = document.getElementById('status');
 
-  // Vulnerability scanner elements
-  const scanResultsSection = document.getElementById('scanResultsSection');
-  const scanResults = document.getElementById('scanResults');
-  const rescanBtn = document.getElementById('rescanBtn');
-  const clearResultsBtn = document.getElementById('clearResultsBtn');
 
   // WordPress elements
   const wordpressSection = document.getElementById('wordpressSection');
@@ -453,87 +448,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  // Vulnerability scanner functionality
-  async function performVulnerabilityScan() {
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-      if (!tab || !tab.url) {
-        showStatus('Unable to get current tab', true);
-        return;
-      }
-
-      // Check if it's a restricted page
-      if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
-        showStatus('Cannot scan this page', true);
-        return;
-      }
-
-      showStatus('Scanning for vulnerabilities...');
-
-      // Send message to content script to perform scan
-      const response = await chrome.tabs.sendMessage(tab.id, { action: 'scanVulnerabilities' });
-
-      if (response && response.success) {
-        displayScanResults(response.vulnerabilities, response.summary);
-        showStatus(`Scan complete: ${response.summary.issues} issues, ${response.summary.passed} passed`);
-      } else {
-        showStatus(response ? response.message : 'Scan failed', true);
-      }
-
-    } catch (error) {
-      showStatus('Error: Content script not responding. Try refreshing the page.', true);
-    }
-  }
-
-  function displayScanResults(results, summary) {
-    // Show the results section
-    scanResultsSection.style.display = 'block';
-
-    // Clear previous results
-    scanResults.innerHTML = '';
-
-    // Add summary
-    const summaryDiv = document.createElement('div');
-    summaryDiv.className = 'scan-summary';
-    summaryDiv.innerHTML = `
-      <strong>Security Scan Results:</strong> ${summary.total} checks completed<br>
-      <span style="color: #22c55e;">✓ ${summary.passed} passed</span> • 
-      <span style="color: #f59e0b;">ℹ ${summary.info} info</span>
-      ${summary.issues > 0 ? ` • <span style="color: #ef4444;">⚠ ${summary.issues} issues</span>` : ''}
-    `;
-    scanResults.appendChild(summaryDiv);
-
-    // Group results by severity for better organization
-    const severityOrder = ['pass', 'info', 'low', 'medium', 'high', 'critical'];
-    const groupedResults = {};
-
-    // Initialize groups
-    severityOrder.forEach(severity => {
-      groupedResults[severity] = results.filter(r => r.severity === severity);
-    });
-
-    // Display results in order
-    severityOrder.forEach(severity => {
-      const items = groupedResults[severity];
-      if (items.length === 0) return;
-
-      items.forEach(result => {
-        const resultDiv = document.createElement('div');
-        resultDiv.className = `vulnerability-item ${result.severity}`;
-        resultDiv.innerHTML = `
-          <div class="vulnerability-title">${result.title}</div>
-          <div class="vulnerability-description">${result.description}</div>
-        `;
-        scanResults.appendChild(resultDiv);
-      });
-    });
-  }
-
-  function clearScanResults() {
-    scanResultsSection.style.display = 'none';
-    scanResults.innerHTML = '';
-  }
 
   // WordPress scan functionality
   async function performWordPressScan() {
@@ -640,15 +554,6 @@ document.addEventListener('DOMContentLoaded', function () {
     wpScanResults.innerHTML = '';
   }
 
-  // Event listeners for vulnerability scanner
-  scanBtn.addEventListener('click', performVulnerabilityScan);
-
-  rescanBtn.addEventListener('click', performVulnerabilityScan);
-
-  clearResultsBtn.addEventListener('click', function () {
-    clearScanResults();
-    showStatus('Scan results cleared');
-  });
 
   // WordPress scan event listeners
   wpScanBtn.addEventListener('click', performWordPressScan);

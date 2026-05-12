@@ -400,15 +400,19 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     
     if (!isRestricted) {
       const isDebugModeEnabled = await StorageManager.get('isDebugModeEnabled');
-      if (isDebugModeEnabled) {
-        chrome.tabs.sendMessage(tabId, { action: 'createBreakpointBox' });
-      } else {
-        chrome.tabs.sendMessage(tabId, { action: 'removeBreakpointBox' });
-        const url = new URL(tab.url);
-        if (url.searchParams.has('debug')) {
-          url.searchParams.delete('debug');
-          chrome.tabs.update(tabId, { url: url.toString() });
+      try {
+        if (isDebugModeEnabled) {
+          chrome.tabs.sendMessage(tabId, { action: 'createBreakpointBox' });
+        } else {
+          chrome.tabs.sendMessage(tabId, { action: 'removeBreakpointBox' });
+          const url = new URL(tab.url);
+          if (url.searchParams.has('debug')) {
+            url.searchParams.delete('debug');
+            chrome.tabs.update(tabId, { url: url.toString() });
+          }
         }
+      } catch (error) {
+        // Tab or extension context may be invalid, ignore silently
       }
     }
   }
