@@ -69,7 +69,7 @@ async function contentScript(tabUrl, tabTitle) {
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
     console.log('Hi-hat Debug Tool installed');
-    
+
     // Set default settings or perform initial setup
     chrome.storage.local.set({
       extensionVersion: chrome.runtime.getManifest().version,
@@ -95,31 +95,31 @@ chrome.runtime.onStartup.addListener(() => {
 // Handle keyboard shortcuts
 chrome.commands.onCommand.addListener(async (command) => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  
+
   if (!tab || !tab.url) {
     return;
   }
-  
+
   // Skip restricted pages
   if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
     return;
   }
-  
+
   if (command === 'copy-url') {
     try {
       // Store URL in extension storage
       await chrome.storage.local.set({ 'clipboardUrl': tab.url });
-      
+
       // Copy to system clipboard using content script
-      await chrome.tabs.sendMessage(tab.id, { 
-        action: 'copyToClipboard', 
-        text: tab.url 
+      await chrome.tabs.sendMessage(tab.id, {
+        action: 'copyToClipboard',
+        text: tab.url
       });
-      
+
       // Show notification
-      chrome.tabs.sendMessage(tab.id, { 
-        action: 'showNotification', 
-        message: 'URL copied to clipboard (Cmd+Shift+C)' 
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'showNotification',
+        message: 'URL copied to clipboard (Cmd+Shift+C)'
       });
     } catch (error) {
       console.error('Failed to copy URL:', error);
@@ -127,27 +127,27 @@ chrome.commands.onCommand.addListener(async (command) => {
   } else if (command === 'paste-url') {
     try {
       // Get URL from system clipboard using content script
-      const response = await chrome.tabs.sendMessage(tab.id, { 
-        action: 'readFromClipboard' 
+      const response = await chrome.tabs.sendMessage(tab.id, {
+        action: 'readFromClipboard'
       });
-      
+
       if (response && response.success && response.text) {
         const clipboardText = response.text.trim();
-        
+
         // Check if it's a valid URL
         try {
           new URL(clipboardText);
           // Navigate to the URL
           await chrome.tabs.update(tab.id, { url: clipboardText });
-          
+
           // Store in extension storage
           await chrome.storage.local.set({ 'clipboardUrl': clipboardText });
         } catch (urlError) {
           // Show error notification
-          chrome.tabs.sendMessage(tab.id, { 
-            action: 'showNotification', 
+          chrome.tabs.sendMessage(tab.id, {
+            action: 'showNotification',
             message: 'Clipboard does not contain a valid URL',
-            isError: true 
+            isError: true
           });
         }
       }
@@ -161,7 +161,7 @@ chrome.commands.onCommand.addListener(async (command) => {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('background message received:', request.action, sender && sender.tab ? sender.tab.id : 'no-tab');
   // Handle any background processing if needed
-  
+
   if (request.action === 'getExtensionInfo') {
     sendResponse({
       version: chrome.runtime.getManifest().version,
@@ -169,12 +169,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true;
   }
-  
+
   if (request.action === 'logEvent') {
     console.log(`[${new Date().toISOString()}] ${request.event}:`, request.data);
     return true;
   }
-  
+
   // Handle clipboard operations from popup
   if (request.action === 'getClipboardUrl') {
     chrome.storage.local.get(['clipboardUrl'], (result) => {
@@ -250,16 +250,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           const drawY = Math.round(scrollY * dpiScale);
           ctx.drawImage(imageBitmaps[i], 0, drawY);
         }
-        
+
         const blob = await canvas.convertToBlob();
-        
+
         const tabURL = new URL(tabUrl);
         let domain = tabURL.hostname;
         if (domain.startsWith('www.')) {
           domain = domain.substring(4);
         }
         const sanitizedTitle = tabTitle.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
-        const filename = `${domain}-${sanitizedTitle}-full.png`;
+        const filename = `${domain}-${sanitizedTitle}.png`;
 
         if (screenshotPromises.has(tabId)) {
           screenshotPromises.get(tabId).resolve({ filename, blob });
@@ -270,14 +270,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.error("Error stitching screenshots:", error);
         const tabId = sender.tab.id;
         if (screenshotPromises.has(tabId)) {
-            screenshotPromises.get(tabId).reject(error);
-            screenshotPromises.delete(tabId);
+          screenshotPromises.get(tabId).reject(error);
+          screenshotPromises.delete(tabId);
         }
       }
     })();
     return true;
   }
-  
+
   if (request.action === 'fullPageScreenshot') {
     (async () => {
       try {
@@ -351,7 +351,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     (async () => {
       try {
         const [mainTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        
+
         const contentScriptReadyPromise = new Promise(resolve => {
           const listener = (message) => {
             if (message.action === 'findLinksScriptReady') {
@@ -367,7 +367,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           files: ['scripts/find-links.js'],
         });
         await contentScriptReadyPromise; // Wait for the content script to be ready
-        
+
         const { links } = await chrome.tabs.sendMessage(mainTab.id, { action: 'findNavLinks' });
 
         const screenshotResults = await Promise.all(
@@ -387,16 +387,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
               const result = await captureAndStitch(newTab.id, createdTab.url, createdTab.title);
               chrome.tabs.remove(newTab.id);
               return result;
-            } catch(e) {
-                console.error(`Failed to capture ${link}`, e);
-                return null;
+            } catch (e) {
+              console.error(`Failed to capture ${link}`, e);
+              return null;
             }
           })
         );
 
         const zip = new JSZip();
-        screenshotResults.filter(r => r).forEach(({filename, blob}) => {
-            zip.file(filename, blob);
+        screenshotResults.filter(r => r).forEach(({ filename, blob }) => {
+          zip.file(filename, blob);
         });
 
         const reader = new FileReader();
@@ -523,7 +523,7 @@ async function captureAndStitch(tabId, url, title) {
     domain = domain.substring(4);
   }
   const sanitizedTitle = title.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
-  const filename = `${domain}-${sanitizedTitle}-full.png`;
+  const filename = `${domain}-${sanitizedTitle}.png`;
 
   return { filename, blob };
 }
@@ -535,7 +535,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     // Skip restricted pages
     const restrictedPrefixes = ['chrome://', 'chrome-extension://', 'edge://', 'about:'];
     const isRestricted = restrictedPrefixes.some(prefix => tab.url.startsWith(prefix));
-    
+
     if (!isRestricted) {
       const isDebugModeEnabled = await StorageManager.get('isDebugModeEnabled');
       try {
@@ -587,7 +587,7 @@ const StorageManager = {
       return null;
     }
   },
-  
+
   async set(key, value) {
     try {
       await chrome.storage.local.set({ [key]: value });
@@ -597,7 +597,7 @@ const StorageManager = {
       return false;
     }
   },
-  
+
   async remove(key) {
     try {
       await chrome.storage.local.remove(key);

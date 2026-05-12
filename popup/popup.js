@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         // Always update main debug button state regardless of WordPress
-        
+
       } catch (error) {
         // Could not check WordPress status
       }
@@ -1004,85 +1004,86 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.disabled = false;
         showCacheStatus('Cannot clear data on this page', true);
       }
-          } catch (error) {
-          btn.innerHTML = originalContent;
-          btn.disabled = false;
-          showCacheStatus('Error clearing all data: ' + error.message, true);
-        }
+    } catch (error) {
+      btn.innerHTML = originalContent;
+      btn.disabled = false;
+      showCacheStatus('Error clearing all data: ' + error.message, true);
+    }
+  });
+
+  // Screenshot functionality
+  const fullPageScreenshotBtn = document.getElementById('fullPageScreenshotBtn');
+  const viewportScreenshotBtn = document.getElementById('viewportScreenshotBtn');
+
+  /**
+   * Downloads a screenshot.
+   * @param {string} screenshotUrl - The data URL of the screenshot.
+   * @param {string} filename - The desired filename for the downloaded file.
+   */
+  function downloadScreenshot(screenshotUrl, filename) {
+    const link = document.createElement('a');
+    link.href = screenshotUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  /**
+   * Takes a screenshot of the visible part of the tab.
+   */
+  async function takeViewportScreenshot() {
+    try {
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
       });
-    
-      // Screenshot functionality
-      const fullPageScreenshotBtn = document.getElementById('fullPageScreenshotBtn');
-      const viewportScreenshotBtn = document.getElementById('viewportScreenshotBtn');
-    
-      /**
-       * Downloads a screenshot.
-       * @param {string} screenshotUrl - The data URL of the screenshot.
-       * @param {string} filename - The desired filename for the downloaded file.
-       */
-      function downloadScreenshot(screenshotUrl, filename) {
-        const link = document.createElement('a');
-        link.href = screenshotUrl;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      if (!tab) {
+        showStatus('Cannot access tab.', true);
+        return;
       }
-    
-      /**
-       * Takes a screenshot of the visible part of the tab.
-       */
-      async function takeViewportScreenshot() {
-        try {
-          const [tab] = await chrome.tabs.query({
-            active: true,
-            currentWindow: true,
-          });
-          if (!tab) {
-            showStatus('Cannot access tab.', true);
-            return;
-          }
-    
-                const screenshotUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
-                  format: 'png',
-                });
-                
-                const tabURL = new URL(tab.url);
-                let domain = tabURL.hostname;
-                if (domain.startsWith('www.')) {
-                  domain = domain.substring(4); // Remove "www."
-                }
-                const sanitizedTitle = tab.title.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
-                const filename = `${domain}-${sanitizedTitle}-viewport.png`;
-          
-                downloadScreenshot(
-                  screenshotUrl,
-                  filename
-                );        } catch (error) {
-          showStatus('Error taking viewport screenshot.', true);
-        }
-      }
-    
-      /**
-       * Takes a screenshot of the full page.
-       */
-      async function takeFullPageScreenshot() {
-        showStatus('Taking full page screenshot...');
-        chrome.runtime.sendMessage({ action: 'fullPageScreenshot' }, (response) => {
-          if (chrome.runtime.lastError || !response || !response.success) {
-            showStatus('Failed to request full page screenshot.', true);
-          } else {
-            showStatus('Full page screenshot request sent. Waiting for download...', false);
-          }
-        });
-      }
-    
-      fullPageScreenshotBtn.addEventListener('click', takeFullPageScreenshot);
-        viewportScreenshotBtn.addEventListener('click', takeViewportScreenshot);
-      
-        const scanAndCaptureBtn = document.getElementById('scanAndCaptureBtn');
-        scanAndCaptureBtn.addEventListener('click', () => {
-          showStatus('Scanning and capturing pages...');
-          chrome.runtime.sendMessage({ action: 'scanAndCapture' });
-        });
+
+      const screenshotUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
+        format: 'png',
       });
+
+      const tabURL = new URL(tab.url);
+      let domain = tabURL.hostname;
+      if (domain.startsWith('www.')) {
+        domain = domain.substring(4); // Remove "www."
+      }
+      const sanitizedTitle = tab.title.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
+      const filename = `${domain}-${sanitizedTitle}-viewport.png`;
+
+      downloadScreenshot(
+        screenshotUrl,
+        filename
+      );
+    } catch (error) {
+      showStatus('Error taking viewport screenshot.', true);
+    }
+  }
+
+  /**
+   * Takes a screenshot of the full page.
+   */
+  async function takeFullPageScreenshot() {
+    showStatus('Taking full page screenshot...');
+    chrome.runtime.sendMessage({ action: 'fullPageScreenshot' }, (response) => {
+      if (chrome.runtime.lastError || !response || !response.success) {
+        showStatus('Failed to request full page screenshot.', true);
+      } else {
+        showStatus('Full page screenshot request sent. Waiting for download...', false);
+      }
+    });
+  }
+
+  fullPageScreenshotBtn.addEventListener('click', takeFullPageScreenshot);
+  viewportScreenshotBtn.addEventListener('click', takeViewportScreenshot);
+
+  const scanAndCaptureBtn = document.getElementById('scanAndCaptureBtn');
+  scanAndCaptureBtn.addEventListener('click', () => {
+    showStatus('Scanning and capturing pages...');
+    chrome.runtime.sendMessage({ action: 'scanAndCapture' });
+  });
+});
