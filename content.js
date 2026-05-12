@@ -417,8 +417,10 @@ function clearAllForms() {
 // Measurement functionality
 let measurementActive = false;
 let isDrawing = false;
+let isDragging = false;
 let startPoint = null;
-let measurements = [];
+let dragOffset = null;
+let drawnRectangle = null; // Stores the single drawn rectangle
 let overlay = null;
 let canvas = null;
 let ctx = null;
@@ -559,47 +561,105 @@ function hideInstructions() {
   if (instructions) instructions.remove();
 }
 
+function isPointInRectangle(point, rect) {
+  const left = Math.min(rect.start.x, rect.end.x);
+  const top = Math.min(rect.start.y, rect.end.y);
+  const right = Math.max(rect.start.x, rect.end.x);
+  const bottom = Math.max(rect.start.y, rect.end.y);
+  
+  return point.x >= left && point.x <= right && point.y >= top && point.y <= bottom;
+}
+
 function startMeasurement(e) {
   if (!measurementActive) return;
   
+  // Check if clicking on existing rectangle to drag it
+  if (drawnRectangle && isPointInRectangle({ x: e.clientX, y: e.clientY }, drawnRectangle)) {
+    isDragging = true;
+    const rectLeft = Math.min(drawnRectangle.start.x, drawnRectangle.end.x);
+    const rectTop = Math.min(drawnRectangle.start.y, drawnRectangle.end.y);
+    dragOffset = {
+      x: e.clientX - rectLeft,
+      y: e.clientY - rectTop
+    };
+    // Update cursor to indicate dragging
+    canvas.style.cursor = 'grab';
+    return;
+  }
+  
+  // Start drawing new rectangle (clears previous)
   isDrawing = true;
   startPoint = { x: e.clientX, y: e.clientY };
+  drawnRectangle = null;
 }
 
 function updateMeasurement(e) {
-  if (!measurementActive || !isDrawing || !startPoint) return;
+  if (!measurementActive) return;
   
-  const currentPoint = { x: e.clientX, y: e.clientY };
-  const width = Math.abs(currentPoint.x - startPoint.x);
-  const height = Math.abs(currentPoint.y - startPoint.y);
-  
-  // Clear and redraw
+  // Clear canvas
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   
-  // Draw current measurement
-  drawMeasurementBox(startPoint, currentPoint, width, height, true);
+  // Handle dragging
+  if (isDragging && drawnRectangle && dragOffset) {
+    const rectWidth = Math.abs(drawnRectangle.end.x - drawnRectangle.start.x);
+    const rectHeight = Math.abs(drawnRectangle.end.y - drawnRectangle.start.y);
+    
+    const newLeft = e.clientX - dragOffset.x;
+    const newTop = e.clientY - dragOffset.y;
+    
+    drawnRectangle.start = { x: newLeft, y: newTop };
+    drawnRectangle.end = { x: newLeft + rectWidth, y: newTop + rectHeight };
+    drawnRectangle.width = rectWidth;
+    drawnRectangle.height = rectHeight;
+    
+    canvas.style.cursor = 'grabbing';
+  }
+  // Handle drawing
+  else if (isDrawing && startPoint) {
+    const currentPoint = { x: e.clientX, y: e.clientY };
+    const width = Math.abs(currentPoint.x - startPoint.x);
+    const height = Math.abs(currentPoint.y - startPoint.y);
+    
+    // Draw current (preview) measurement
+    drawMeasurementBox(startPoint, currentPoint, width, height, true);
+  }
   
-  // Draw saved measurements
-  measurements.forEach(measurement => {
-    drawMeasurementBox(measurement.start, measurement.end, measurement.width, measurement.height, false);
-  });
+  // Always redraw saved rectangle
+  if (drawnRectangle) {
+    drawMeasurementBox(
+      drawnRectangle.start,
+      drawnRectangle.end,
+      drawnRectangle.width,
+      drawnRectangle.height,
+      false
+    );
+  }
 }
 
 function endMeasurement(e) {
-  if (!measurementActive || !isDrawing || !startPoint) return;
+  if (!measurementActive) return;
+  
+  if (isDragging) {
+    isDragging = false;
+    dragOffset = null;
+    canvas.style.cursor = 'crosshair';
+    return;
+  }
+  
+  if (!isDrawing || !startPoint) return;
   
   const endPoint = { x: e.clientX, y: e.clientY };
   const width = Math.abs(endPoint.x - startPoint.x);
   const height = Math.abs(endPoint.y - startPoint.y);
   
-  // Save measurement if it's big enough
+  // Save single rectangle if it's big enough
   if (width > 5 || height > 5) {
-    measurements.push({
+    drawnRectangle = {
       start: startPoint,
       end: endPoint,
       width: width,
       height: height
-    });
+    };
     
     // Copy dimensions to clipboard
     const dimensionText = `${Math.round(width)}×${Math.round(height)}`;
@@ -609,6 +669,18 @@ function endMeasurement(e) {
   
   isDrawing = false;
   startPoint = null;
+  
+  // Redraw
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (drawnRectangle) {
+    drawMeasurementBox(
+      drawnRectangle.start,
+      drawnRectangle.end,
+      drawnRectangle.width,
+      drawnRectangle.height,
+      false
+    );
+  }
 }
 
 function drawMeasurementBox(start, end, width, height, isActive) {

@@ -82,16 +82,28 @@ document.addEventListener('DOMContentLoaded', function () {
           }
 
           // Update button states based on current URL
-          updateWordPressButtonStates(tab.url);
         }
 
         // Always update main debug button state regardless of WordPress
-        updateWordPressButtonStates(tab.url);
+        
       } catch (error) {
         // Could not check WordPress status
       }
     } catch (error) {
       // Error initializing WordPress
+    }
+  }
+
+  function updateDebugButtonState(url) {
+    try {
+      const urlObj = new URL(url);
+      const params = urlObj.searchParams;
+
+      // Update button active states based on current URL parameters
+      const debugValue = params.get('debug');
+      updateButtonState(addDebugBtn, debugValue === 'true');
+    } catch (error) {
+      // Error updating button states
     }
   }
 
@@ -101,8 +113,6 @@ document.addEventListener('DOMContentLoaded', function () {
       const params = urlObj.searchParams;
 
       // Update button active states based on current URL parameters
-      const debugValue = params.get('debug');
-      updateButtonState(addDebugBtn, debugValue === '1' || debugValue === 'true');
       updateButtonState(wpDebugBtn, params.has('WP_DEBUG') || params.has('WPDEBUG') || params.has('wp_debug'));
       updateButtonState(wpQueryBtn, params.has('debug_queries') || params.has('query_debug'));
       updateButtonState(wpCacheBtn, params.has('nocache') || params.has('no_cache') || params.has('cache_bust'));
@@ -196,28 +206,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Get the current debug state and update the button
   async function initializeDebugButton() {
-    const { value } = await chrome.runtime.sendMessage({ action: 'getStorage', key: 'isDebugModeEnabled' });
-    updateButtonState(addDebugBtn, value);
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab && tab.url) {
+        updateDebugButtonState(tab.url);
+        updateWordPressButtonStates(tab.url);
+      }
+    } catch (error) {
+      // Error initializing debug button
+    }
   }
 
-  addDebugBtn.addEventListener('click', async function () {
-    const { value } = await chrome.runtime.sendMessage({ action: 'getStorage', key: 'isDebugModeEnabled' });
-    const newState = !value;
-
-    await chrome.runtime.sendMessage({ action: 'setStorage', key: 'isDebugModeEnabled', value: newState });
-
-    updateButtonState(addDebugBtn, newState);
-    showStatus(`Debug mode ${newState ? 'enabled' : 'disabled'}.`);
-
-    // Reload the current tab to apply the changes
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab) {
-      chrome.tabs.reload(tab.id);
-    }
-
-    setTimeout(() => {
-      window.close();
-    }, 1000);
+  addDebugBtn.addEventListener('click', function () {
+    toggleUrlParameter('debug', 'true', 'Debug mode');
   });
 
   initializeDebugButton();
