@@ -1068,7 +1068,13 @@ document.addEventListener('DOMContentLoaded', function () {
        */
       async function takeFullPageScreenshot() {
         showStatus('Taking full page screenshot...');
-        chrome.runtime.sendMessage({ action: 'fullPageScreenshot' });
+        chrome.runtime.sendMessage({ action: 'fullPageScreenshot' }, (response) => {
+          if (chrome.runtime.lastError || !response || !response.success) {
+            showStatus('Failed to request full page screenshot.', true);
+          } else {
+            showStatus('Full page screenshot request sent. Waiting for download...', false);
+          }
+        });
       }
     
       fullPageScreenshotBtn.addEventListener('click', takeFullPageScreenshot);
