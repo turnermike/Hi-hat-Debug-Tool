@@ -78,18 +78,6 @@ body {
   font-family: inherit;
 }
 
-.debug-button {
-  background-color: #eff6ff;
-}
-
-.debug-button:hover {
-  background-color: #dbeafe;
-}
-
-.debug-button.active {
-  background-color: #2563eb; /* A blue background to match the border-color of .wp-button.debug-button */
-  color: white;
-}
 
 .clear-button {
   background-color: #fef2f2;
@@ -290,15 +278,6 @@ body {
 }
 
 /* Main action button color variants */
-.wp-button.debug-button {
-  border-color: #2563eb;
-  color: #2563eb;
-}
-
-.wp-button.debug-button:hover {
-  background-color: #2563eb;
-  color: white;
-}
 
 .wp-button.clear-button {
   border-color: #dc2626;

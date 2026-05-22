@@ -27,7 +27,7 @@ async function contentScript(tabUrl, tabTitle) {
   document.body.style.overflow = '';
   document.documentElement.style.overflow = '';
 
-  // Store original styles of fixed/sticky elements and hide them without leaving gaps
+  // Store original styles of fixed/sticky elements and hide them only after the first capture
   const fixedElements = [];
   document.querySelectorAll('*').forEach(element => {
     const style = window.getComputedStyle(element);
@@ -38,7 +38,6 @@ async function contentScript(tabUrl, tabTitle) {
         originalVisibility: element.style.getPropertyValue('visibility'),
         originalPosition: element.style.getPropertyValue('position')
       });
-      element.style.setProperty('display', 'none', 'important');
     }
   });
 
@@ -117,7 +116,7 @@ chrome.commands.onCommand.addListener(async (command) => {
       });
 
       // Show notification
-      chrome.tabs.sendMessage(tab.id, {
+      await chrome.tabs.sendMessage(tab.id, {
         action: 'showNotification',
         message: 'URL copied to clipboard (Cmd+Shift+C)'
       });
@@ -144,7 +143,7 @@ chrome.commands.onCommand.addListener(async (command) => {
           await chrome.storage.local.set({ 'clipboardUrl': clipboardText });
         } catch (urlError) {
           // Show error notification
-          chrome.tabs.sendMessage(tab.id, {
+          await chrome.tabs.sendMessage(tab.id, {
             action: 'showNotification',
             message: 'Clipboard does not contain a valid URL',
             isError: true
@@ -180,12 +179,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     chrome.storage.local.get(['clipboardUrl'], (result) => {
       sendResponse({ clipboardUrl: result.clipboardUrl || '' });
     });
-    return true;
-  }
-
-  if (request.action === 'toggleDebugMode') {
-    StorageManager.set('isDebugModeEnabled', request.enabled);
-    sendResponse({ success: true });
     return true;
   }
 
@@ -446,6 +439,22 @@ async function captureAndStitch(tabId, url, title) {
       }
 
       console.log('scrolling to', scrollY, 'step', i + 1, 'of', numScrolls);
+      if (i > 0) {
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          func: () => {
+            const state = window.__hiHatDebug__;
+            if (!state) {
+              return false;
+            }
+            state.fixedElements.forEach(item => {
+              item.element.style.setProperty('display', 'none', 'important');
+            });
+            return true;
+          }
+        });
+      }
+
       await chrome.scripting.executeScript({
         target: { tabId },
         func: (y) => {
@@ -528,33 +537,6 @@ async function captureAndStitch(tabId, url, title) {
   return { filename, blob };
 }
 
-// Handle tab updates for WordPress detection
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  // Only act when the page has finished loading
-  if (changeInfo.status === 'complete' && tab.url) {
-    // Skip restricted pages
-    const restrictedPrefixes = ['chrome://', 'chrome-extension://', 'edge://', 'about:'];
-    const isRestricted = restrictedPrefixes.some(prefix => tab.url.startsWith(prefix));
-
-    if (!isRestricted) {
-      const isDebugModeEnabled = await StorageManager.get('isDebugModeEnabled');
-      try {
-        if (isDebugModeEnabled) {
-          chrome.tabs.sendMessage(tabId, { action: 'createBreakpointBox' });
-        } else {
-          chrome.tabs.sendMessage(tabId, { action: 'removeBreakpointBox' });
-          const url = new URL(tab.url);
-          if (url.searchParams.has('debug')) {
-            url.searchParams.delete('debug');
-            chrome.tabs.update(tabId, { url: url.toString() });
-          }
-        }
-      } catch (error) {
-        // Tab or extension context may be invalid, ignore silently
-      }
-    }
-  }
-});
 
 // Handle extension icon click (optional - alternative to popup)
 chrome.action.onClicked.addListener((tab) => {

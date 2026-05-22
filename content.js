@@ -4,29 +4,6 @@
  * Handles WordPress detection, form clearing, measurements, vulnerability scanning, etc.
  */
 
-// Debug parameter normalization
-function normalizeDebugParameter() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const debugValue = urlParams.get('debug');
-  
-  // Convert debug=1 to debug=true for sites that expect string values
-  if (debugValue === '1') {
-    const newUrl = new URL(window.location);
-    newUrl.searchParams.set('debug', 'true');
-    
-    // Update the URL without reloading
-    if (window.history && window.history.replaceState) {
-      window.history.replaceState({}, '', newUrl.toString());
-    }
-  }
-}
-
-// Run debug normalization on page load
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', normalizeDebugParameter);
-} else {
-  normalizeDebugParameter();
-}
 
 // WordPress detection
 let isWordPressSite = false;
@@ -866,17 +843,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  if (request.action === 'createBreakpointBox') {
-    createBreakpointBox();
-    sendResponse({ success: true });
-    return true;
-  }
-
-  if (request.action === 'removeBreakpointBox') {
-    removeBreakpointBox();
-    sendResponse({ success: true });
-    return true;
-  }
 
   if (request.action === 'removeUrlParameters') {
     try {
@@ -901,95 +867,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 });
-
-function createBreakpointBox() {
-  const existingBox = document.getElementById('hihat-breakpoint-box');
-  if (existingBox) {
-    return;
-  }
-
-  const box = document.createElement('div');
-  box.id = 'hihat-breakpoint-box';
-  box.style.cssText = `
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    background-color: rgba(0, 0, 0, 0.8);
-    color: white;
-    border-radius: 5px;
-    padding: 8px 12px;
-    z-index: 99999;
-    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
-    font-size: 12px;
-    line-height: 1.5;
-    text-align: right;
-    pointer-events: none;
-  `;
-  document.body.appendChild(box);
-
-  function updateBreakpointBox() {
-    const width = window.innerWidth;
-    let breakpoint = '';
-
-    if (width >= 1400) {
-      breakpoint = 'XXL';
-    } else if (width >= 1200) {
-      breakpoint = 'XL';
-    } else if (width >= 992) {
-      breakpoint = 'LG';
-    } else if (width >= 768) {
-      breakpoint = 'MD';
-    } else if (width >= 576) {
-      breakpoint = 'SM';
-    } else {
-      breakpoint = 'XS'; // Assuming anything below SM is XS
-    }
-
-    box.innerHTML = `
-      Breakpoint: <span style="font-weight: bold;">${breakpoint}</span><br>
-      Screen Width: <span style="font-weight: bold;">${width} PX</span>
-    `;
-  }
-
-  window.addEventListener('resize', updateBreakpointBox);
-  updateBreakpointBox();
-}
-
-function removeBreakpointBox() {
-  const box = document.getElementById('hihat-breakpoint-box');
-  if (box) {
-    box.remove();
-  }
-}
-
-// Add debug parameter to links
-document.addEventListener('click', (e) => {
-  const link = e.target.closest('a');
-  if (!link) {
-    return;
-  }
-
-  try {
-    if (!chrome.runtime) {
-      return;
-    }
-    chrome.runtime.sendMessage({ action: 'getStorage', key: 'isDebugModeEnabled' }, ({ value }) => {
-      if (value) {
-        try {
-          const url = new URL(link.href);
-          if (url.hostname === window.location.hostname) {
-            url.searchParams.set('debug', 'true');
-            link.href = url.href;
-          }
-        } catch (error) {
-          // Ignore URL parsing errors
-        }
-      }
-    });
-  } catch (error) {
-    // Ignore extension context errors
-  }
-}, true);
 
 
 // Clipboard functionality

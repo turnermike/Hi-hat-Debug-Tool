@@ -5,7 +5,6 @@
  */
 
 document.addEventListener('DOMContentLoaded', function () {
-  const addDebugBtn = document.getElementById('addDebugBtn');
   const clearFormsBtn = document.getElementById('clearFormsBtn');
   const measureBtn = document.getElementById('measureBtn');
   const scanBtn = document.getElementById('scanBtn');
@@ -75,11 +74,7 @@ document.addEventListener('DOMContentLoaded', function () {
           if (response.debugInfo.hasUserSwitching) {
             userSwitchingRow.style.display = 'table-row';
           }
-
-          // Update button states based on current URL
         }
-
-        // Always update main debug button state regardless of WordPress
 
       } catch (error) {
         // Could not check WordPress status
@@ -89,18 +84,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  function updateDebugButtonState(url) {
-    try {
-      const urlObj = new URL(url);
-      const params = urlObj.searchParams;
-
-      // Update button active states based on current URL parameters
-      const debugValue = params.get('debug');
-      updateButtonState(addDebugBtn, debugValue === 'true');
-    } catch (error) {
-      // Error updating button states
-    }
-  }
 
   function updateWordPressButtonStates(url) {
     try {
@@ -199,24 +182,19 @@ document.addEventListener('DOMContentLoaded', function () {
     }, 2000);
   }
 
-  // Get the current debug state and update the button
-  async function initializeDebugButton() {
+  // Initialize URL-based button states
+  async function initializeButtonStates() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab && tab.url) {
-        updateDebugButtonState(tab.url);
         updateWordPressButtonStates(tab.url);
       }
     } catch (error) {
-      // Error initializing debug button
+      // Error initializing button states
     }
   }
 
-  addDebugBtn.addEventListener('click', function () {
-    toggleUrlParameter('debug', 'true', 'Debug mode');
-  });
-
-  initializeDebugButton();
+  initializeButtonStates();
 
   clearFormsBtn.addEventListener('click', async function () {
     try {
