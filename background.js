@@ -156,6 +156,27 @@ chrome.commands.onCommand.addListener(async (command) => {
   }
 });
 
+async function getCrawlableLinks(tabId) {
+  const contentScriptReadyPromise = new Promise(resolve => {
+    const listener = (message) => {
+      if (message.action === 'findLinksScriptReady') {
+        chrome.runtime.onMessage.removeListener(listener);
+        resolve();
+      }
+    };
+    chrome.runtime.onMessage.addListener(listener);
+  });
+
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    files: ['scripts/find-links.js'],
+  });
+  await contentScriptReadyPromise;
+
+  const response = await chrome.tabs.sendMessage(tabId, { action: 'findNavLinks' });
+  return response?.links || [];
+}
+
 // Handle messages from content scripts or popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('background message received:', request.action, sender && sender.tab ? sender.tab.id : 'no-tab');
@@ -340,28 +361,34 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request.action === 'previewCrawlableLinks') {
+    (async () => {
+      try {
+        const [mainTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!mainTab?.id) {
+          sendResponse({ success: false, error: 'No active tab' });
+          return;
+        }
+        const links = await getCrawlableLinks(mainTab.id);
+        sendResponse({ success: true, links });
+      } catch (error) {
+        console.error('Error previewing crawlable links:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true;
+  }
+
   if (request.action === 'scanAndCapture') {
     (async () => {
       try {
         const [mainTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        const links = request.links ?? await getCrawlableLinks(mainTab.id);
 
-        const contentScriptReadyPromise = new Promise(resolve => {
-          const listener = (message) => {
-            if (message.action === 'findLinksScriptReady') {
-              chrome.runtime.onMessage.removeListener(listener);
-              resolve();
-            }
-          };
-          chrome.runtime.onMessage.addListener(listener);
-        });
-
-        await chrome.scripting.executeScript({
-          target: { tabId: mainTab.id },
-          files: ['scripts/find-links.js'],
-        });
-        await contentScriptReadyPromise; // Wait for the content script to be ready
-
-        const { links } = await chrome.tabs.sendMessage(mainTab.id, { action: 'findNavLinks' });
+        if (!links.length) {
+          console.warn('No crawlable links to capture');
+          return;
+        }
 
         const screenshotResults = await Promise.all(
           links.map(async (link) => {
@@ -392,21 +419,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           zip.file(filename, blob);
         });
 
-        const reader = new FileReader();
-        reader.readAsDataURL(zipBlob);
-        reader.onloadend = () => {
-          const dataUrl = reader.result;
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const dataUrl = await blobToDataUrl(zipBlob);
+        await new Promise((resolve, reject) => {
           chrome.downloads.download({
             url: dataUrl,
             filename: 'screenshots.zip',
             saveAs: true
+          }, (downloadId) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+              return;
+            }
+            resolve(downloadId);
           });
-        };
+        });
 
       } catch (error) {
         console.error("Error scanning and capturing:", error);
       }
     })();
+    return true;
   }
 });
 

@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const clearWebSQLBtn = document.getElementById('clearWebSQLBtn');
   const clearAllDataBtn = document.getElementById('clearAllDataBtn');
   const clearCacheStatus = document.getElementById('clear-cache-status');
+  let clearCacheStatusTimeout = null;
 
   // WordPress detection and initialization
   async function initializeWordPress() {
@@ -172,14 +173,30 @@ document.addEventListener('DOMContentLoaded', function () {
     }, 2000);
   }
 
-  function showCacheStatus(message, isError = false) {
+  function showCacheStatus(message, isError = false, duration = 3000) {
+    if (clearCacheStatusTimeout) {
+      clearTimeout(clearCacheStatusTimeout);
+      clearCacheStatusTimeout = null;
+    }
+
+    if (!message) {
+      clearCacheStatus.textContent = '';
+      clearCacheStatus.className = 'status-message status-hidden';
+      clearCacheStatus.style.display = 'none';
+      return;
+    }
+
     clearCacheStatus.textContent = message;
     clearCacheStatus.className = `status-message ${isError ? 'status-error' : 'status-success'}`;
+    clearCacheStatus.style.display = 'block';
 
-    // Hide status after 2 seconds
-    setTimeout(() => {
-      clearCacheStatus.className = 'status-message status-hidden';
-    }, 2000);
+    if (duration > 0) {
+      clearCacheStatusTimeout = setTimeout(() => {
+        clearCacheStatus.className = 'status-message status-hidden';
+        clearCacheStatus.style.display = 'none';
+        clearCacheStatusTimeout = null;
+      }, duration);
+    }
   }
 
   // Initialize URL-based button states
@@ -655,6 +672,7 @@ document.addEventListener('DOMContentLoaded', function () {
       // Show loading state
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
+      showCacheStatus('Clearing cache...', false, 0);
 
       const origin = await getCurrentOrigin();
 
@@ -692,6 +710,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
+      showCacheStatus('Clearing cookies...', false, 0);
 
       const origin = await getCurrentOrigin();
 
@@ -727,6 +746,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
+      showCacheStatus('Clearing local storage...', false, 0);
 
       const origin = await getCurrentOrigin();
 
@@ -762,6 +782,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
+      showCacheStatus('Clearing IndexedDB...', false, 0);
 
       const origin = await getCurrentOrigin();
 
@@ -799,6 +820,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
+      showCacheStatus('Clearing service workers...', false, 0);
 
       const origin = await getCurrentOrigin();
 
@@ -834,6 +856,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
+      showCacheStatus('Clearing cache storage...', false, 0);
 
       const origin = await getCurrentOrigin();
 
@@ -871,26 +894,17 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
+      showCacheStatus('Clearing form data...', false, 0);
 
-      const origin = await getCurrentOrigin();
+      await chrome.browsingData.removeFormData({});
 
-      if (origin) {
-        await chrome.browsingData.removeFormData({
-          origins: [origin]
-        });
+      btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
+      showCacheStatus('Form data cleared successfully!');
 
-        btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
-        showCacheStatus('Form data cleared successfully!');
-
-        setTimeout(() => {
-          btn.innerHTML = originalContent;
-          btn.disabled = false;
-        }, 2000);
-      } else {
+      setTimeout(() => {
         btn.innerHTML = originalContent;
         btn.disabled = false;
-        showCacheStatus('Cannot clear form data on this page', true);
-      }
+      }, 2000);
     } catch (error) {
       btn.innerHTML = originalContent;
       btn.disabled = false;
@@ -906,6 +920,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
+      showCacheStatus('Clearing Web SQL...', false, 0);
 
       const origin = await getCurrentOrigin();
 
@@ -943,6 +958,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
+      showCacheStatus('Clearing all site data...', false, 0);
 
       const origin = await getCurrentOrigin();
 
@@ -957,14 +973,14 @@ document.addEventListener('DOMContentLoaded', function () {
           indexedDB: true,
           serviceWorkers: true,
           cacheStorage: true,
-          formData: true,
           webSQL: true
         });
 
+        const formDataPromise = chrome.browsingData.removeFormData({});
         const delayPromise = new Promise(resolve => setTimeout(resolve, 500));
 
         // Wait for both clearing and minimum delay
-        await Promise.all([clearPromise, delayPromise]);
+        await Promise.all([clearPromise, formDataPromise, delayPromise]);
 
         btn.innerHTML = '<span class="wp-button-label">✓ All Cleared!</span>';
         showCacheStatus('All site data cleared! Reloading...');
@@ -1060,8 +1076,91 @@ document.addEventListener('DOMContentLoaded', function () {
   viewportScreenshotBtn.addEventListener('click', takeViewportScreenshot);
 
   const scanAndCaptureBtn = document.getElementById('scanAndCaptureBtn');
-  scanAndCaptureBtn.addEventListener('click', () => {
+  const scanCaptureModal = document.getElementById('scanCaptureModal');
+  const scanCaptureModalMessage = document.getElementById('scanCaptureModalMessage');
+  const scanCaptureConfirmBtn = document.getElementById('scanCaptureConfirmBtn');
+  const scanCaptureCancelBtn = document.getElementById('scanCaptureCancelBtn');
+  const scanCaptureModalClose = document.getElementById('scanCaptureModalClose');
+
+  let pendingScanLinks = [];
+
+  function isRestrictedTabUrl(url) {
+    return !url ||
+      url.startsWith('chrome://') ||
+      url.startsWith('chrome-extension://') ||
+      url.startsWith('edge://') ||
+      url.startsWith('about:');
+  }
+
+  function hideScanCaptureModal() {
+    scanCaptureModal.style.display = 'none';
+    pendingScanLinks = [];
+  }
+
+  function showScanCaptureModal(links, hostname) {
+    pendingScanLinks = links;
+    const count = links.length;
+    let countMessage;
+
+    if (count === 0) {
+      countMessage = `No crawlable pages were found in the navigation for <strong>${hostname}</strong>.`;
+      scanCaptureConfirmBtn.disabled = true;
+    } else if (count === 1) {
+      countMessage = `<strong>1 page</strong> on <strong>${hostname}</strong> will open in a new background tab.`;
+      scanCaptureConfirmBtn.disabled = false;
+    } else {
+      countMessage = `<strong>${count} pages</strong> on <strong>${hostname}</strong> will each open in a new background tab.`;
+      scanCaptureConfirmBtn.disabled = false;
+    }
+
+    scanCaptureModalMessage.innerHTML = countMessage;
+    scanCaptureModal.style.display = 'flex';
+  }
+
+  function startScanAndCapture() {
+    const links = pendingScanLinks;
+    hideScanCaptureModal();
     showStatus('Scanning and capturing pages...');
-    chrome.runtime.sendMessage({ action: 'scanAndCapture' });
+    chrome.runtime.sendMessage({ action: 'scanAndCapture', links });
+  }
+
+  async function openScanCaptureConfirmation() {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    if (!tab?.url || isRestrictedTabUrl(tab.url)) {
+      showStatus('Cannot scan links on this page.', true);
+      return;
+    }
+
+    scanAndCaptureBtn.disabled = true;
+    showStatus('Finding crawlable pages...');
+
+    chrome.runtime.sendMessage({ action: 'previewCrawlableLinks' }, (response) => {
+      scanAndCaptureBtn.disabled = false;
+
+      if (chrome.runtime.lastError) {
+        showStatus('Failed to find pages: ' + chrome.runtime.lastError.message, true);
+        return;
+      }
+
+      if (!response?.success) {
+        showStatus(response?.error || 'Failed to find crawlable pages.', true);
+        return;
+      }
+
+      statusDiv.classList.add('status-hidden');
+      const hostname = new URL(tab.url).hostname;
+      showScanCaptureModal(response.links, hostname);
+    });
+  }
+
+  scanAndCaptureBtn.addEventListener('click', openScanCaptureConfirmation);
+  scanCaptureConfirmBtn.addEventListener('click', startScanAndCapture);
+  scanCaptureCancelBtn.addEventListener('click', hideScanCaptureModal);
+  scanCaptureModalClose.addEventListener('click', hideScanCaptureModal);
+  scanCaptureModal.addEventListener('click', (event) => {
+    if (event.target === scanCaptureModal) {
+      hideScanCaptureModal();
+    }
   });
 });
