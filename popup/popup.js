@@ -5,18 +5,36 @@
  */
 
 document.addEventListener('DOMContentLoaded', function () {
-  const addDebugBtn = document.getElementById('addDebugBtn');
   const clearFormsBtn = document.getElementById('clearFormsBtn');
   const measureBtn = document.getElementById('measureBtn');
+  const colorPickerBtn = document.getElementById('colorPickerBtn');
+  const colorPaletteBtn = document.getElementById('colorPaletteBtn');
   const scanBtn = document.getElementById('scanBtn');
   const resetParamsBtn = document.getElementById('resetParamsBtn');
   const statusDiv = document.getElementById('status');
+  const captureWarningDiv = document.getElementById('captureWarning');
+  const colorPickerResult = document.getElementById('colorPickerResult');
+  const colorSwatch = document.getElementById('colorSwatch');
+  const colorHexValue = document.getElementById('colorHexValue');
+  const colorRgbValue = document.getElementById('colorRgbValue');
+  const colorCopyStatus = document.getElementById('colorCopyStatus');
+  const deleteColorBtn = document.getElementById('deleteColorBtn');
 
-  // Vulnerability scanner elements
-  const scanResultsSection = document.getElementById('scanResultsSection');
-  const scanResults = document.getElementById('scanResults');
-  const rescanBtn = document.getElementById('rescanBtn');
-  const clearResultsBtn = document.getElementById('clearResultsBtn');
+  // Color Palette Extractor elements
+  const colorPaletteResult = document.getElementById('colorPaletteResult');
+  const colorGridContainer = document.getElementById('colorGridContainer');
+  const colorPaletteStatus = document.getElementById('colorPaletteStatus');
+  const hexToggleBtn = document.getElementById('hexToggleBtn');
+  const rgbToggleBtn = document.getElementById('rgbToggleBtn');
+  const cssToggleBtn = document.getElementById('cssToggleBtn');
+  const pixelToggleBtn = document.getElementById('pixelToggleBtn');
+  const resetPaletteBtn = document.getElementById('resetPaletteBtn');
+
+  // Color Palette state
+  let currentPalette = [];
+  let currentFormat = 'hex';
+  let currentExtractionMode = 'css';
+
 
   // WordPress elements
   const wordpressSection = document.getElementById('wordpressSection');
@@ -41,7 +59,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const clipboardDisplay = document.getElementById('clipboardDisplay');
   const clipboardContent = document.getElementById('clipboardContent');
   const refreshClipboardBtn = document.getElementById('refreshClipboardBtn');
-  const clearClipboardBtn = document.getElementById('clearClipboardBtn');
+  const deleteClipboardBtn = document.getElementById('deleteClipboardBtn');
 
   // Clear Cache elements
   const clearCacheBtn = document.getElementById('clearCacheBtn');
@@ -54,6 +72,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const clearWebSQLBtn = document.getElementById('clearWebSQLBtn');
   const clearAllDataBtn = document.getElementById('clearAllDataBtn');
   const clearCacheStatus = document.getElementById('clear-cache-status');
+  let clearCacheStatusTimeout = null;
 
   // WordPress detection and initialization
   async function initializeWordPress() {
@@ -80,12 +99,8 @@ document.addEventListener('DOMContentLoaded', function () {
           if (response.debugInfo.hasUserSwitching) {
             userSwitchingRow.style.display = 'table-row';
           }
-
-          // Update button states based on current URL
         }
 
-        // Always update main debug button state regardless of WordPress
-        
       } catch (error) {
         // Could not check WordPress status
       }
@@ -94,18 +109,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  function updateDebugButtonState(url) {
-    try {
-      const urlObj = new URL(url);
-      const params = urlObj.searchParams;
-
-      // Update button active states based on current URL parameters
-      const debugValue = params.get('debug');
-      updateButtonState(addDebugBtn, debugValue === 'true');
-    } catch (error) {
-      // Error updating button states
-    }
-  }
 
   function updateWordPressButtonStates(url) {
     try {
@@ -140,8 +143,62 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+  function formatRgb(rgb) {
+    if (!rgb || typeof rgb.r !== 'number' || typeof rgb.g !== 'number' || typeof rgb.b !== 'number') {
+      return '-';
+    }
+    return `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+  }
+
+  function updateColorResult(colorData, copyStatusText = '') {
+    if (!colorPickerResult || !colorHexValue || !colorRgbValue || !colorSwatch || !colorCopyStatus) {
+      return;
+    }
+
+    if (!colorData || !colorData.hex) {
+      colorPickerResult.style.display = 'none';
+      colorHexValue.textContent = '-';
+      colorRgbValue.textContent = '-';
+      colorSwatch.style.backgroundColor = '#ffffff';
+      colorCopyStatus.textContent = '';
+      return;
+    }
+
+    colorPickerResult.style.display = 'block';
+    colorHexValue.textContent = colorData.hex;
+    colorRgbValue.textContent = formatRgb(colorData.rgb);
+    colorSwatch.style.backgroundColor = colorData.hex;
+    colorCopyStatus.textContent = copyStatusText;
+  }
+
+  async function loadSavedColorResult() {
+    try {
+      // Color result is saved but not displayed automatically to keep popup clean
+      // User can view it by opening the popup's developer tools if needed
+      await chrome.storage.local.get(['lastPickedColor']);
+    } catch (error) {
+      // Ignore storage read errors for color result hydration
+    }
+  }
+
+  async function deleteColorResult() {
+    try {
+      await chrome.storage.local.remove(['lastPickedColor']);
+      updateColorResult(null);
+      showStatus('Picked color deleted', false);
+    } catch (error) {
+      showStatus('Failed to delete color', true);
+    }
+  }
+
+  // Delete color button click handler
+  deleteColorBtn.addEventListener('click', function () {
+    deleteColorResult();
+  });
+
   // Initialize WordPress detection
   initializeWordPress();
+  loadSavedColorResult();
 
   // Add refresh button click handler
   refreshClipboardBtn.addEventListener('click', function () {
@@ -149,8 +206,8 @@ document.addEventListener('DOMContentLoaded', function () {
     refreshClipboard();
   });
 
-  // Add clear clipboard button click handler
-  clearClipboardBtn.addEventListener('click', function () {
+  // Add delete clipboard button click handler
+  deleteClipboardBtn.addEventListener('click', function () {
     clearClipboard();
   });
 
@@ -194,34 +251,71 @@ document.addEventListener('DOMContentLoaded', function () {
     }, 2000);
   }
 
-  function showCacheStatus(message, isError = false) {
-    clearCacheStatus.textContent = message;
-    clearCacheStatus.className = `status-message ${isError ? 'status-error' : 'status-success'}`;
-
-    // Hide status after 2 seconds
-    setTimeout(() => {
-      clearCacheStatus.className = 'status-message status-hidden';
-    }, 2000);
+  function showCaptureWarning(message) {
+    captureWarningDiv.textContent = message;
+    captureWarningDiv.className = 'status-message status-warning';
   }
 
-  // Get the current debug state and update the button
-  async function initializeDebugButton() {
+  function clearCaptureWarning() {
+    captureWarningDiv.textContent = '';
+    captureWarningDiv.className = 'status-message status-hidden';
+  }
+
+  // Copy text to clipboard and show status
+  async function copyTextWithResult(text) {
     try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab && tab.url) {
-        updateDebugButtonState(tab.url);
-        updateWordPressButtonStates(tab.url);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        showStatus(`Copied: ${text}`);
+        return true;
       }
     } catch (error) {
-      // Error initializing debug button
+      console.error('Clipboard error:', error);
+    }
+
+    showStatus('Could not copy to clipboard', true);
+    return false;
+  }
+
+  function showCacheStatus(message, isError = false, duration = 3000) {
+    if (clearCacheStatusTimeout) {
+      clearTimeout(clearCacheStatusTimeout);
+      clearCacheStatusTimeout = null;
+    }
+
+    if (!message) {
+      clearCacheStatus.textContent = '';
+      clearCacheStatus.className = 'status-message status-hidden';
+      clearCacheStatus.style.display = 'none';
+      return;
+    }
+
+    clearCacheStatus.textContent = message;
+    clearCacheStatus.className = `status-message ${isError ? 'status-error' : 'status-success'}`;
+    clearCacheStatus.style.display = 'block';
+
+    if (duration > 0) {
+      clearCacheStatusTimeout = setTimeout(() => {
+        clearCacheStatus.className = 'status-message status-hidden';
+        clearCacheStatus.style.display = 'none';
+        clearCacheStatusTimeout = null;
+      }, duration);
     }
   }
 
-  addDebugBtn.addEventListener('click', function () {
-    toggleUrlParameter('debug', 'true', 'Debug mode');
-  });
+  // Initialize URL-based button states
+  async function initializeButtonStates() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab && tab.url) {
+        updateWordPressButtonStates(tab.url);
+      }
+    } catch (error) {
+      // Error initializing button states
+    }
+  }
 
-  initializeDebugButton();
+  initializeButtonStates();
 
   clearFormsBtn.addEventListener('click', async function () {
     try {
@@ -294,6 +388,50 @@ document.addEventListener('DOMContentLoaded', function () {
 
     } catch (error) {
       showStatus('Error: Could not toggle measurement - ' + error.message, true);
+    }
+  });
+
+  colorPickerBtn.addEventListener('click', async function () {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+      if (!tab || !tab.url) {
+        showStatus('Unable to get current tab', true);
+        return;
+      }
+
+      if (isRestrictedTabUrl(tab.url)) {
+        showStatus('Cannot use color picker on this page', true);
+        return;
+      }
+
+      const response = await chrome.tabs.sendMessage(tab.id, { action: 'toggleColorPicker' });
+
+      if (!response || !response.success) {
+        showStatus(response ? response.message : 'Could not toggle color picker', true);
+        return;
+      }
+
+      updateButtonState(colorPickerBtn, !!response.active);
+
+      if (response.color) {
+        const copiedMessage = response.color.copySuccess === false
+          ? 'Copy failed in page context'
+          : 'HEX copied to clipboard';
+        updateColorResult(response.color, copiedMessage);
+      }
+
+      showStatus(response.message, false);
+
+      // Close the popup once picker is active so the next click on the page
+      // immediately performs the color pick instead of dismissing the popup.
+      if (response.active) {
+        setTimeout(() => {
+          window.close();
+        }, 100);
+      }
+    } catch (error) {
+      showStatus('Error: Content script not responding. Try refreshing the page.', true);
     }
   });
 
@@ -453,87 +591,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  // Vulnerability scanner functionality
-  async function performVulnerabilityScan() {
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-      if (!tab || !tab.url) {
-        showStatus('Unable to get current tab', true);
-        return;
-      }
-
-      // Check if it's a restricted page
-      if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
-        showStatus('Cannot scan this page', true);
-        return;
-      }
-
-      showStatus('Scanning for vulnerabilities...');
-
-      // Send message to content script to perform scan
-      const response = await chrome.tabs.sendMessage(tab.id, { action: 'scanVulnerabilities' });
-
-      if (response && response.success) {
-        displayScanResults(response.vulnerabilities, response.summary);
-        showStatus(`Scan complete: ${response.summary.issues} issues, ${response.summary.passed} passed`);
-      } else {
-        showStatus(response ? response.message : 'Scan failed', true);
-      }
-
-    } catch (error) {
-      showStatus('Error: Content script not responding. Try refreshing the page.', true);
-    }
-  }
-
-  function displayScanResults(results, summary) {
-    // Show the results section
-    scanResultsSection.style.display = 'block';
-
-    // Clear previous results
-    scanResults.innerHTML = '';
-
-    // Add summary
-    const summaryDiv = document.createElement('div');
-    summaryDiv.className = 'scan-summary';
-    summaryDiv.innerHTML = `
-      <strong>Security Scan Results:</strong> ${summary.total} checks completed<br>
-      <span style="color: #22c55e;">✓ ${summary.passed} passed</span> • 
-      <span style="color: #f59e0b;">ℹ ${summary.info} info</span>
-      ${summary.issues > 0 ? ` • <span style="color: #ef4444;">⚠ ${summary.issues} issues</span>` : ''}
-    `;
-    scanResults.appendChild(summaryDiv);
-
-    // Group results by severity for better organization
-    const severityOrder = ['pass', 'info', 'low', 'medium', 'high', 'critical'];
-    const groupedResults = {};
-
-    // Initialize groups
-    severityOrder.forEach(severity => {
-      groupedResults[severity] = results.filter(r => r.severity === severity);
-    });
-
-    // Display results in order
-    severityOrder.forEach(severity => {
-      const items = groupedResults[severity];
-      if (items.length === 0) return;
-
-      items.forEach(result => {
-        const resultDiv = document.createElement('div');
-        resultDiv.className = `vulnerability-item ${result.severity}`;
-        resultDiv.innerHTML = `
-          <div class="vulnerability-title">${result.title}</div>
-          <div class="vulnerability-description">${result.description}</div>
-        `;
-        scanResults.appendChild(resultDiv);
-      });
-    });
-  }
-
-  function clearScanResults() {
-    scanResultsSection.style.display = 'none';
-    scanResults.innerHTML = '';
-  }
 
   // WordPress scan functionality
   async function performWordPressScan() {
@@ -640,15 +697,6 @@ document.addEventListener('DOMContentLoaded', function () {
     wpScanResults.innerHTML = '';
   }
 
-  // Event listeners for vulnerability scanner
-  scanBtn.addEventListener('click', performVulnerabilityScan);
-
-  rescanBtn.addEventListener('click', performVulnerabilityScan);
-
-  clearResultsBtn.addEventListener('click', function () {
-    clearScanResults();
-    showStatus('Scan results cleared');
-  });
 
   // WordPress scan event listeners
   wpScanBtn.addEventListener('click', performWordPressScan);
@@ -684,18 +732,28 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
       }
 
-      // Remove all query parameters
-      currentUrl.search = '';
+      // Send message to content script to remove parameters without reloading
+      try {
+        const response = await chrome.tabs.sendMessage(tab.id, { action: 'removeUrlParameters' });
 
-      // Update the tab with the cleaned URL
-      await chrome.tabs.update(tab.id, { url: currentUrl.toString() });
-
-      showStatus(`All URL parameters removed`);
-
-      // Close popup after successful action
-      setTimeout(() => {
-        window.close();
-      }, 1000);
+        if (response && response.success) {
+          showStatus('All URL parameters removed');
+          // Close popup after successful action
+          setTimeout(() => {
+            window.close();
+          }, 800);
+        } else {
+          showStatus(response ? response.message : 'Failed to remove parameters', true);
+        }
+      } catch (messageError) {
+        // Content script not available, fallback to page reload
+        currentUrl.search = '';
+        await chrome.tabs.update(tab.id, { url: currentUrl.toString() });
+        showStatus('Parameters removed (page reloaded)');
+        setTimeout(() => {
+          window.close();
+        }, 1000);
+      }
 
     } catch (error) {
       showStatus('Error: ' + error.message, true);
@@ -762,6 +820,7 @@ document.addEventListener('DOMContentLoaded', function () {
       // Show loading state
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
+      showCacheStatus('Clearing cache...', false, 0);
 
       const origin = await getCurrentOrigin();
 
@@ -770,9 +829,14 @@ document.addEventListener('DOMContentLoaded', function () {
           origins: [origin]
         });
 
-        // Show success state
+        const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (currentTab && currentTab.id) {
+          await chrome.tabs.reload(currentTab.id);
+        }
+
+        // Show success state and reload notice
         btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
-        showCacheStatus('Cache cleared successfully!');
+        showCacheStatus('Cache cleared successfully! Reloading...');
 
         // Reset button after delay
         setTimeout(() => {
@@ -799,6 +863,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
+      showCacheStatus('Clearing cookies...', false, 0);
 
       const origin = await getCurrentOrigin();
 
@@ -834,6 +899,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
+      showCacheStatus('Clearing local storage...', false, 0);
 
       const origin = await getCurrentOrigin();
 
@@ -869,6 +935,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
+      showCacheStatus('Clearing IndexedDB...', false, 0);
 
       const origin = await getCurrentOrigin();
 
@@ -906,6 +973,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
+      showCacheStatus('Clearing service workers...', false, 0);
 
       const origin = await getCurrentOrigin();
 
@@ -941,6 +1009,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
+      showCacheStatus('Clearing cache storage...', false, 0);
 
       const origin = await getCurrentOrigin();
 
@@ -978,26 +1047,17 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
+      showCacheStatus('Clearing form data...', false, 0);
 
-      const origin = await getCurrentOrigin();
+      await chrome.browsingData.removeFormData({});
 
-      if (origin) {
-        await chrome.browsingData.removeFormData({
-          origins: [origin]
-        });
+      btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
+      showCacheStatus('Form data cleared successfully!');
 
-        btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
-        showCacheStatus('Form data cleared successfully!');
-
-        setTimeout(() => {
-          btn.innerHTML = originalContent;
-          btn.disabled = false;
-        }, 2000);
-      } else {
+      setTimeout(() => {
         btn.innerHTML = originalContent;
         btn.disabled = false;
-        showCacheStatus('Cannot clear form data on this page', true);
-      }
+      }, 2000);
     } catch (error) {
       btn.innerHTML = originalContent;
       btn.disabled = false;
@@ -1013,18 +1073,26 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
+      showCacheStatus('Clearing Web SQL...', false, 0);
 
       const origin = await getCurrentOrigin();
 
       if (origin) {
-        await chrome.browsingData.remove({
-          origins: [origin]
-        }, {
-          webSQL: true
-        });
+        try {
+          await chrome.browsingData.remove({
+            origins: [origin]
+          }, {
+            webSQL: true
+          });
 
-        btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
-        showCacheStatus('Web SQL cleared successfully!');
+          btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
+          showCacheStatus('Web SQL cleared successfully!');
+        } catch (error) {
+          btn.innerHTML = originalContent;
+          btn.disabled = false;
+          showCacheStatus('Web SQL is not supported in this browser.', true);
+          return;
+        }
 
         setTimeout(() => {
           btn.innerHTML = originalContent;
@@ -1050,6 +1118,7 @@ document.addEventListener('DOMContentLoaded', function () {
     try {
       btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
       btn.disabled = true;
+      showCacheStatus('Clearing all site data...', false, 0);
 
       const origin = await getCurrentOrigin();
 
@@ -1063,15 +1132,14 @@ document.addEventListener('DOMContentLoaded', function () {
           localStorage: true,
           indexedDB: true,
           serviceWorkers: true,
-          cacheStorage: true,
-          formData: true,
-          webSQL: true
+          cacheStorage: true
         });
 
+        const formDataPromise = chrome.browsingData.removeFormData({});
         const delayPromise = new Promise(resolve => setTimeout(resolve, 500));
 
         // Wait for both clearing and minimum delay
-        await Promise.all([clearPromise, delayPromise]);
+        await Promise.all([clearPromise, formDataPromise, delayPromise]);
 
         btn.innerHTML = '<span class="wp-button-label">✓ All Cleared!</span>';
         showCacheStatus('All site data cleared! Reloading...');
@@ -1089,79 +1157,392 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.disabled = false;
         showCacheStatus('Cannot clear data on this page', true);
       }
-          } catch (error) {
-          btn.innerHTML = originalContent;
-          btn.disabled = false;
-          showCacheStatus('Error clearing all data: ' + error.message, true);
-        }
+    } catch (error) {
+      btn.innerHTML = originalContent;
+      btn.disabled = false;
+      showCacheStatus('Error clearing all data: ' + error.message, true);
+    }
+  });
+
+  // Screenshot functionality
+  const fullPageScreenshotBtn = document.getElementById('fullPageScreenshotBtn');
+  const viewportScreenshotBtn = document.getElementById('viewportScreenshotBtn');
+
+  /**
+   * Downloads a screenshot.
+   * @param {string} screenshotUrl - The data URL of the screenshot.
+   * @param {string} filename - The desired filename for the downloaded file.
+   */
+  function downloadScreenshot(screenshotUrl, filename) {
+    const link = document.createElement('a');
+    link.href = screenshotUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  /**
+   * Takes a screenshot of the visible part of the tab.
+   */
+  async function takeViewportScreenshot() {
+    try {
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
       });
-    
-      // Screenshot functionality
-      const fullPageScreenshotBtn = document.getElementById('fullPageScreenshotBtn');
-      const viewportScreenshotBtn = document.getElementById('viewportScreenshotBtn');
-    
-      /**
-       * Downloads a screenshot.
-       * @param {string} screenshotUrl - The data URL of the screenshot.
-       * @param {string} filename - The desired filename for the downloaded file.
-       */
-      function downloadScreenshot(screenshotUrl, filename) {
-        const link = document.createElement('a');
-        link.href = screenshotUrl;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      if (!tab) {
+        showStatus('Cannot access tab.', true);
+        return;
       }
-    
-      /**
-       * Takes a screenshot of the visible part of the tab.
-       */
-      async function takeViewportScreenshot() {
-        try {
-          const [tab] = await chrome.tabs.query({
-            active: true,
-            currentWindow: true,
-          });
-          if (!tab) {
-            showStatus('Cannot access tab.', true);
-            return;
-          }
-    
-                const screenshotUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
-                  format: 'png',
-                });
-                
-                const tabURL = new URL(tab.url);
-                let domain = tabURL.hostname;
-                if (domain.startsWith('www.')) {
-                  domain = domain.substring(4); // Remove "www."
-                }
-                const sanitizedTitle = tab.title.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
-                const filename = `${domain}-${sanitizedTitle}-viewport.png`;
-          
-                downloadScreenshot(
-                  screenshotUrl,
-                  filename
-                );        } catch (error) {
-          showStatus('Error taking viewport screenshot.', true);
-        }
+
+      const screenshotUrl = await chrome.tabs.captureVisibleTab(tab.windowId, {
+        format: 'png',
+      });
+
+      const tabURL = new URL(tab.url);
+      let domain = tabURL.hostname;
+      if (domain.startsWith('www.')) {
+        domain = domain.substring(4); // Remove "www."
       }
-    
-      /**
-       * Takes a screenshot of the full page.
-       */
-      async function takeFullPageScreenshot() {
-        showStatus('Taking full page screenshot...');
-        chrome.runtime.sendMessage({ action: 'fullPageScreenshot' });
-      }
-    
-      fullPageScreenshotBtn.addEventListener('click', takeFullPageScreenshot);
-        viewportScreenshotBtn.addEventListener('click', takeViewportScreenshot);
-      
-        const scanAndCaptureBtn = document.getElementById('scanAndCaptureBtn');
-        scanAndCaptureBtn.addEventListener('click', () => {
-          showStatus('Scanning and capturing pages...');
-          chrome.runtime.sendMessage({ action: 'scanAndCapture' });
+      const sanitizedTitle = tab.title.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
+      const filename = `${domain}-${sanitizedTitle}-viewport.png`;
+
+      downloadScreenshot(
+        screenshotUrl,
+        filename
+      );
+    } catch (error) {
+      showStatus('Error taking viewport screenshot.', true);
+    }
+  }
+
+  async function detectFullPageCaptureRisk(tabId) {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        const scrollingElement = document.scrollingElement || document.documentElement;
+        const isVisible = (element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.height > 0 && rect.width > 0 && element.offsetParent !== null;
+        };
+
+        const candidates = Array.from(document.querySelectorAll('body *')).filter(element => {
+          const style = window.getComputedStyle(element);
+          const overflowY = style.overflowY;
+          return (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay')
+            && element.scrollHeight > element.clientHeight + 50
+            && isVisible(element);
         });
+
+        const scrollRoot = candidates.length === 0
+          ? (scrollingElement || document.body)
+          : candidates.reduce((best, element) => {
+            const bestDelta = best.scrollHeight - best.clientHeight;
+            const elementDelta = element.scrollHeight - element.clientHeight;
+            return elementDelta > bestDelta ? element : best;
+          }, candidates[0]);
+
+        const usingWindowScroll = scrollRoot === document.scrollingElement
+          || scrollRoot === document.documentElement
+          || scrollRoot === document.body;
+
+        const pageHeight = Math.max(
+          scrollRoot.scrollHeight,
+          document.documentElement.scrollHeight,
+          document.body.scrollHeight
+        );
+        const viewportHeight = usingWindowScroll ? window.innerHeight : scrollRoot.clientHeight;
+
+        return {
+          internalScroll: !usingWindowScroll,
+          pageHeight,
+          viewportHeight,
+          riskLevel: !usingWindowScroll,
+          scrollRootTag: scrollRoot.tagName,
+          scrollRootClasses: scrollRoot.className || null
+        };
+      }
+    });
+
+    return result?.result || null;
+  }
+
+  /**
+   * Takes a screenshot of the full page.
+   */
+  async function takeFullPageScreenshot() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab) {
+        showStatus('Cannot access tab.', true);
+        return;
+      }
+
+      clearCaptureWarning();
+      let statusMessage = 'Taking full page screenshot...';
+      let warning = null;
+
+      try {
+        const tabUrl = new URL(tab.url);
+        if (tabUrl.hostname === 'mail.google.com') {
+          warning = 'Warning: Gmail uses an internal scroll container and may not stitch correctly. The capture may be imperfect.';
+        }
+      } catch (urlError) {
+        // ignore URL parsing errors and fall back to DOM risk detection
+      }
+
+      if (!warning) {
+        const risk = await detectFullPageCaptureRisk(tab.id);
+        if (risk && risk.riskLevel) {
+          warning = 'Warning: this page uses an internal scroll container and may not stitch perfectly.';
+        }
+      }
+
+      if (warning) {
+        showCaptureWarning(warning);
+        statusMessage = 'Starting full page screenshot with capture warning...';
+      }
+
+      showStatus(statusMessage, false);
+      chrome.runtime.sendMessage({ action: 'fullPageScreenshot' }, (response) => {
+        if (chrome.runtime.lastError || !response || !response.success) {
+          showStatus('Failed to request full page screenshot.', true);
+        } else {
+          showStatus('Full page screenshot request sent. Waiting for download...', false);
+        }
       });
+    } catch (error) {
+      showStatus('Error detecting capture risk.', true);
+    }
+  }
+
+  fullPageScreenshotBtn.addEventListener('click', takeFullPageScreenshot);
+  viewportScreenshotBtn.addEventListener('click', takeViewportScreenshot);
+
+  const scanAndCaptureBtn = document.getElementById('scanAndCaptureBtn');
+  const scanCaptureModal = document.getElementById('scanCaptureModal');
+  const scanCaptureModalMessage = document.getElementById('scanCaptureModalMessage');
+  const scanCaptureConfirmBtn = document.getElementById('scanCaptureConfirmBtn');
+  const scanCaptureCancelBtn = document.getElementById('scanCaptureCancelBtn');
+  const scanCaptureModalClose = document.getElementById('scanCaptureModalClose');
+
+  let pendingScanLinks = [];
+
+  function isRestrictedTabUrl(url) {
+    return !url ||
+      url.startsWith('chrome://') ||
+      url.startsWith('chrome-extension://') ||
+      url.startsWith('edge://') ||
+      url.startsWith('about:');
+  }
+
+  function hideScanCaptureModal() {
+    scanCaptureModal.style.display = 'none';
+    pendingScanLinks = [];
+  }
+
+  function showScanCaptureModal(links, hostname) {
+    pendingScanLinks = links;
+    const count = links.length;
+    let countMessage;
+
+    if (count === 0) {
+      countMessage = `No crawlable pages were found in the navigation for <strong>${hostname}</strong>.`;
+      scanCaptureConfirmBtn.disabled = true;
+    } else if (count === 1) {
+      countMessage = `<strong>1 page</strong> on <strong>${hostname}</strong> will open in a new background tab.`;
+      scanCaptureConfirmBtn.disabled = false;
+    } else {
+      countMessage = `<strong>${count} pages</strong> on <strong>${hostname}</strong> will each open in a new background tab.`;
+      scanCaptureConfirmBtn.disabled = false;
+    }
+
+    scanCaptureModalMessage.innerHTML = countMessage;
+    scanCaptureModal.style.display = 'flex';
+  }
+
+  function startScanAndCapture() {
+    const links = pendingScanLinks;
+    hideScanCaptureModal();
+    showStatus('Scanning and capturing pages...');
+    chrome.runtime.sendMessage({ action: 'scanAndCapture', links });
+  }
+
+  async function openScanCaptureConfirmation() {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    if (!tab?.url || isRestrictedTabUrl(tab.url)) {
+      showStatus('Cannot scan links on this page.', true);
+      return;
+    }
+
+    scanAndCaptureBtn.disabled = true;
+    showStatus('Finding crawlable pages...');
+
+    chrome.runtime.sendMessage({ action: 'previewCrawlableLinks' }, (response) => {
+      scanAndCaptureBtn.disabled = false;
+
+      if (chrome.runtime.lastError) {
+        showStatus('Failed to find pages: ' + chrome.runtime.lastError.message, true);
+        return;
+      }
+
+      if (!response?.success) {
+        showStatus(response?.error || 'Failed to find crawlable pages.', true);
+        return;
+      }
+
+      statusDiv.classList.add('status-hidden');
+      const hostname = new URL(tab.url).hostname;
+      showScanCaptureModal(response.links, hostname);
+    });
+  }
+
+  scanAndCaptureBtn.addEventListener('click', openScanCaptureConfirmation);
+
+  // Color Palette Extractor button handler
+  colorPaletteBtn.addEventListener('click', async function () {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+      if (!tab || !tab.url) {
+        showStatus('Unable to get current tab', true);
+        return;
+      }
+
+      if (isRestrictedTabUrl(tab.url)) {
+        showStatus('Cannot extract colors from this page', true);
+        return;
+      }
+
+      colorPaletteStatus.textContent = 'Extracting colors...';
+      colorPaletteResult.style.display = 'block';
+
+      const response = await chrome.tabs.sendMessage(tab.id, {
+        action: 'extractColorPalette',
+        extractionMode: currentExtractionMode
+      });
+
+      if (!response || !response.success) {
+        showStatus(response ? response.message : 'Could not extract colors', true);
+        colorPaletteStatus.textContent = 'Error extracting colors';
+        return;
+      }
+
+      currentPalette = response.colors;
+      displayColorPalette(response.colors, currentFormat);
+      colorPaletteStatus.textContent = `Found ${response.colors.length} unique colors`;
+      showStatus(`Extracted ${response.colors.length} colors from page`);
+
+    } catch (error) {
+      showStatus('Error: Content script not responding. Try refreshing the page.', true);
+      colorPaletteStatus.textContent = 'Error extracting colors';
+    }
+  });
+
+  // Display color palette grid
+  function displayColorPalette(colors, format = 'hex') {
+    currentFormat = format;
+    colorGridContainer.innerHTML = '';
+
+    if (!colors || colors.length === 0) {
+      colorGridContainer.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 20px; color: #6b7280;">No colors found</div>';
+      return;
+    }
+
+    colors.forEach(colorData => {
+      const swatchDiv = document.createElement('div');
+      swatchDiv.className = 'color-swatch-item';
+
+      const swatchDisplay = document.createElement('div');
+      swatchDisplay.className = 'color-swatch-display';
+      swatchDisplay.style.backgroundColor = colorData.hex;
+      swatchDisplay.title = `${colorData.hex} - Used ${colorData.frequency || 1} time(s)`;
+
+      const swatchLabel = document.createElement('div');
+      swatchLabel.className = 'color-swatch-label';
+      if (format === 'hex') {
+        swatchLabel.textContent = colorData.hex;
+      } else {
+        const rgb = colorData.rgb;
+        swatchLabel.textContent = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+      }
+
+      swatchDiv.appendChild(swatchDisplay);
+      swatchDiv.appendChild(swatchLabel);
+
+      // Add click to copy functionality
+      swatchDiv.addEventListener('click', () => {
+        const textToCopy = format === 'hex' ? colorData.hex : `rgb(${colorData.rgb.r}, ${colorData.rgb.g}, ${colorData.rgb.b})`;
+        copyTextWithResult(textToCopy);
+      });
+
+      colorGridContainer.appendChild(swatchDiv);
+    });
+  }
+
+  // Toggle format between HEX and RGB
+  function setupFormatToggle() {
+    hexToggleBtn.addEventListener('click', () => {
+      currentFormat = 'hex';
+      hexToggleBtn.classList.add('active');
+      rgbToggleBtn.classList.remove('active');
+      displayColorPalette(currentPalette, 'hex');
+    });
+
+    rgbToggleBtn.addEventListener('click', () => {
+      currentFormat = 'rgb';
+      rgbToggleBtn.classList.add('active');
+      hexToggleBtn.classList.remove('active');
+      displayColorPalette(currentPalette, 'rgb');
+    });
+  }
+
+  // Toggle extraction mode between CSS-only and CSS+Pixel
+  function setupExtractionModeToggle() {
+    cssToggleBtn.addEventListener('click', async () => {
+      currentExtractionMode = 'css';
+      cssToggleBtn.classList.add('active');
+      pixelToggleBtn.classList.remove('active');
+
+      // Re-trigger extraction with new mode if we have colors displayed
+      if (currentPalette.length > 0) {
+        colorPaletteBtn.click();
+      }
+    });
+
+    pixelToggleBtn.addEventListener('click', async () => {
+      currentExtractionMode = 'pixel';
+      pixelToggleBtn.classList.add('active');
+      cssToggleBtn.classList.remove('active');
+
+      // Re-trigger extraction with new mode if we have colors displayed
+      if (currentPalette.length > 0) {
+        colorPaletteBtn.click();
+      }
+    });
+  }
+
+  // Reset color palette display
+  function resetColorPalette() {
+    currentPalette = [];
+    colorGridContainer.innerHTML = '';
+    colorPaletteResult.style.display = 'none';
+    colorPaletteStatus.textContent = '';
+    showStatus('Color palette cleared');
+  }
+
+  // Initialize color palette toggles
+  setupFormatToggle();
+  setupExtractionModeToggle();
+  resetPaletteBtn.addEventListener('click', resetColorPalette);
+  scanCaptureConfirmBtn.addEventListener('click', startScanAndCapture);
+  scanCaptureCancelBtn.addEventListener('click', hideScanCaptureModal);
+  scanCaptureModalClose.addEventListener('click', hideScanCaptureModal);
+  scanCaptureModal.addEventListener('click', (event) => {
+    if (event.target === scanCaptureModal) {
+      hideScanCaptureModal();
+    }
+  });
+});

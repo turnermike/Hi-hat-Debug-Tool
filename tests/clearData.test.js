@@ -5,8 +5,10 @@
 
 describe('Clear Data Functionality', () => {
   let mockStatusDiv;
+  let mockClearCacheStatusDiv;
   let mockClearCacheBtn;
   let mockClearCookiesBtn;
+  let mockClearFormDataBtn;
   let mockClearAllDataBtn;
 
   // Helper function to create a mock button
@@ -22,14 +24,18 @@ describe('Clear Data Functionality', () => {
     // Set up DOM elements
     document.body.innerHTML = `
       <div id="status" class="status-message status-hidden"></div>
+      <div id="clear-cache-status" class="status-message status-hidden"></div>
       <button id="clearCacheBtn"><span class="wp-button-label">Cache</span></button>
       <button id="clearCookiesBtn"><span class="wp-button-label">Cookies</span></button>
+      <button id="clearFormDataBtn"><span class="wp-button-label">Form Data</span></button>
       <button id="clearAllDataBtn"><span class="wp-button-label">Clear All</span></button>
     `;
 
     mockStatusDiv = document.getElementById('status');
+    mockClearCacheStatusDiv = document.getElementById('clear-cache-status');
     mockClearCacheBtn = document.getElementById('clearCacheBtn');
     mockClearCookiesBtn = document.getElementById('clearCookiesBtn');
+    mockClearFormDataBtn = document.getElementById('clearFormDataBtn');
     mockClearAllDataBtn = document.getElementById('clearAllDataBtn');
 
     // Reset Chrome API mocks
@@ -115,7 +121,7 @@ describe('Clear Data Functionality', () => {
         url: 'not-a-valid-url'
       };
       chrome.tabs.query.mockResolvedValue([mockTab]);
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
 
       const getCurrentOrigin = async () => {
         try {
@@ -173,6 +179,7 @@ describe('Clear Data Functionality', () => {
       };
       chrome.tabs.query.mockResolvedValue([mockTab]);
       chrome.browsingData.removeCache.mockResolvedValue(undefined);
+      chrome.tabs.reload.mockResolvedValue(undefined);
 
       const getCurrentOrigin = async () => {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -199,9 +206,11 @@ describe('Clear Data Functionality', () => {
               origins: [origin]
             });
 
+            await chrome.tabs.reload(mockTab.id);
+
             btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
-            mockStatusDiv.textContent = 'Cache cleared successfully!';
-            mockStatusDiv.className = 'status-message status-success';
+            mockClearCacheStatusDiv.textContent = 'Cache cleared successfully! Reloading...';
+            mockClearCacheStatusDiv.className = 'status-message status-success';
 
             setTimeout(() => {
               btn.innerHTML = originalContent;
@@ -211,8 +220,8 @@ describe('Clear Data Functionality', () => {
         } catch (error) {
           btn.innerHTML = originalContent;
           btn.disabled = false;
-          mockStatusDiv.textContent = 'Error clearing cache: ' + error.message;
-          mockStatusDiv.className = 'status-message status-error';
+          mockClearCacheStatusDiv.textContent = 'Error clearing cache: ' + error.message;
+          mockClearCacheStatusDiv.className = 'status-message status-error';
         }
       };
 
@@ -225,8 +234,9 @@ describe('Clear Data Functionality', () => {
       expect(chrome.browsingData.removeCache).toHaveBeenCalledWith({
         origins: ['https://example.com']
       });
-      expect(mockStatusDiv.textContent).toBe('Cache cleared successfully!');
-      expect(mockStatusDiv.className).toBe('status-message status-success');
+      expect(chrome.tabs.reload).toHaveBeenCalledWith(1);
+      expect(mockClearCacheStatusDiv.textContent).toBe('Cache cleared successfully! Reloading...');
+      expect(mockClearCacheStatusDiv.className).toBe('status-message status-success');
       expect(mockClearCacheBtn.innerHTML).toContain('✓ Cleared!');
       expect(mockClearCacheBtn.disabled).toBe(true);
     });
@@ -234,7 +244,7 @@ describe('Clear Data Functionality', () => {
     test('should show loading state while clearing cache', async () => {
       const mockTab = { id: 1, url: 'https://example.com' };
       chrome.tabs.query.mockResolvedValue([mockTab]);
-      
+
       let resolveCache;
       const cachePromise = new Promise(resolve => {
         resolveCache = resolve;
@@ -253,7 +263,7 @@ describe('Clear Data Functionality', () => {
         const btn = mockClearCacheBtn;
         btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
         btn.disabled = true;
-        
+
         const origin = await getCurrentOrigin();
         if (origin) {
           await chrome.browsingData.removeCache({ origins: [origin] });
@@ -261,11 +271,11 @@ describe('Clear Data Functionality', () => {
       };
 
       const clickPromise = handleClick();
-      
+
       // Check loading state before promise resolves
       expect(mockClearCacheBtn.innerHTML).toContain('⏳ Clearing...');
       expect(mockClearCacheBtn.disabled).toBe(true);
-      
+
       resolveCache();
       await clickPromise;
     });
@@ -404,6 +414,41 @@ describe('Clear Data Functionality', () => {
     });
   });
 
+  describe('clearFormDataBtn functionality', () => {
+    test('should clear form data when clicked', async () => {
+      const mockTab = { id: 1, url: 'https://example.com/page' };
+      chrome.tabs.query.mockResolvedValue([mockTab]);
+      chrome.browsingData.removeFormData.mockResolvedValue(undefined);
+
+      const handleClick = async () => {
+        const btn = mockClearFormDataBtn;
+        const originalContent = btn.innerHTML;
+
+        try {
+          btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
+          btn.disabled = true;
+
+          await chrome.browsingData.removeFormData({});
+
+          btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
+          mockStatusDiv.textContent = 'Form data cleared successfully!';
+          mockStatusDiv.className = 'status-message status-success';
+        } catch (error) {
+          btn.innerHTML = originalContent;
+          btn.disabled = false;
+          mockStatusDiv.textContent = 'Error clearing form data: ' + error.message;
+          mockStatusDiv.className = 'status-message status-error';
+        }
+      };
+
+      await handleClick();
+
+      expect(chrome.browsingData.removeFormData).toHaveBeenCalledWith({});
+      expect(mockStatusDiv.textContent).toBe('Form data cleared successfully!');
+      expect(mockClearFormDataBtn.innerHTML).toContain('✓ Cleared!');
+    });
+  });
+
   describe('clearAllDataBtn functionality', () => {
     test('should clear all specified browsing data for the current origin and reload the tab', async () => {
       const mockTab = { id: 1, url: 'https://example.com/page' };
@@ -438,13 +483,12 @@ describe('Clear Data Functionality', () => {
               localStorage: true,
               indexedDB: true,
               serviceWorkers: true,
-              cacheStorage: true,
-              formData: true,
-              webSQL: true
+              cacheStorage: true
             });
 
+            const formDataPromise = chrome.browsingData.removeFormData({});
             const delayPromise = new Promise(resolve => setTimeout(resolve, 500));
-            await Promise.all([clearPromise, delayPromise]);
+            await Promise.all([clearPromise, formDataPromise, delayPromise]);
 
             btn.innerHTML = '<span class="wp-button-label">✓ All Cleared!</span>';
             mockStatusDiv.textContent = 'All site data cleared! Reloading...';
@@ -465,7 +509,7 @@ describe('Clear Data Functionality', () => {
       };
 
       await handleClick();
-      
+
       expect(chrome.browsingData.remove).toHaveBeenCalledWith(
         { origins: ['https://example.com'] },
         {
@@ -474,11 +518,10 @@ describe('Clear Data Functionality', () => {
           localStorage: true,
           indexedDB: true,
           serviceWorkers: true,
-          cacheStorage: true,
-          formData: true,
-          webSQL: true
+          cacheStorage: true
         }
       );
+      expect(chrome.browsingData.removeFormData).toHaveBeenCalledWith({});
       expect(mockStatusDiv.textContent).toBe('All site data cleared! Reloading...');
       expect(mockClearAllDataBtn.innerHTML).toContain('✓ All Cleared!');
 
@@ -651,7 +694,7 @@ describe('Clear Data Functionality', () => {
     test('should maintain button state consistency during async operations', async () => {
       const mockTab = { id: 1, url: 'https://example.com' };
       chrome.tabs.query.mockResolvedValue([mockTab]);
-      
+
       let resolveCache;
       const cachePromise = new Promise(resolve => {
         resolveCache = resolve;
@@ -659,15 +702,15 @@ describe('Clear Data Functionality', () => {
       chrome.browsingData.removeCache.mockImplementation(() => cachePromise);
 
       const originalContent = mockClearCacheBtn.innerHTML;
-      
+
       const handleClick = async () => {
         const btn = mockClearCacheBtn;
         btn.innerHTML = '<span class="wp-button-label">⏳ Clearing...</span>';
         btn.disabled = true;
-        
+
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         const origin = new URL(tab.url).origin;
-        
+
         try {
           await chrome.browsingData.removeCache({ origins: [origin] });
           btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
@@ -678,15 +721,15 @@ describe('Clear Data Functionality', () => {
       };
 
       const clickPromise = handleClick();
-      
+
       // Button should be disabled with loading state
       expect(mockClearCacheBtn.disabled).toBe(true);
       expect(mockClearCacheBtn.innerHTML).toContain('⏳ Clearing...');
-      
+
       // Resolve the promise
       resolveCache();
       await clickPromise;
-      
+
       // Button should show success state
       expect(mockClearCacheBtn.innerHTML).toContain('✓ Cleared!');
       expect(mockClearCacheBtn.disabled).toBe(true);
