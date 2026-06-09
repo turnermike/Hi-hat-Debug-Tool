@@ -179,6 +179,7 @@ describe('Clear Data Functionality', () => {
       };
       chrome.tabs.query.mockResolvedValue([mockTab]);
       chrome.browsingData.removeCache.mockResolvedValue(undefined);
+      chrome.tabs.reload.mockResolvedValue(undefined);
 
       const getCurrentOrigin = async () => {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -205,8 +206,10 @@ describe('Clear Data Functionality', () => {
               origins: [origin]
             });
 
+            await chrome.tabs.reload(mockTab.id);
+
             btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
-            mockClearCacheStatusDiv.textContent = 'Cache cleared successfully!';
+            mockClearCacheStatusDiv.textContent = 'Cache cleared successfully! Reloading...';
             mockClearCacheStatusDiv.className = 'status-message status-success';
 
             setTimeout(() => {
@@ -231,7 +234,8 @@ describe('Clear Data Functionality', () => {
       expect(chrome.browsingData.removeCache).toHaveBeenCalledWith({
         origins: ['https://example.com']
       });
-      expect(mockClearCacheStatusDiv.textContent).toBe('Cache cleared successfully!');
+      expect(chrome.tabs.reload).toHaveBeenCalledWith(1);
+      expect(mockClearCacheStatusDiv.textContent).toBe('Cache cleared successfully! Reloading...');
       expect(mockClearCacheStatusDiv.className).toBe('status-message status-success');
       expect(mockClearCacheBtn.innerHTML).toContain('✓ Cleared!');
       expect(mockClearCacheBtn.disabled).toBe(true);
@@ -479,8 +483,7 @@ describe('Clear Data Functionality', () => {
               localStorage: true,
               indexedDB: true,
               serviceWorkers: true,
-              cacheStorage: true,
-              webSQL: true
+              cacheStorage: true
             });
 
             const formDataPromise = chrome.browsingData.removeFormData({});
@@ -515,8 +518,7 @@ describe('Clear Data Functionality', () => {
           localStorage: true,
           indexedDB: true,
           serviceWorkers: true,
-          cacheStorage: true,
-          webSQL: true
+          cacheStorage: true
         }
       );
       expect(chrome.browsingData.removeFormData).toHaveBeenCalledWith({});

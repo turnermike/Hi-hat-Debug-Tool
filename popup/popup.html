@@ -42,7 +42,16 @@
               </button>
             </td>
             <td class="wp-button-cell">
-              <!-- Empty cell for layout -->
+              <button id="colorPickerBtn" class="wp-button color-picker-button">
+                <span class="wp-button-label">Color Picker</span>
+              </button>
+            </td>
+          </tr>
+          <tr>
+            <td class="wp-button-cell" colspan="3">
+              <button id="colorPaletteBtn" class="wp-button color-palette-button">
+                <span class="wp-button-label">Color Palette Extractor</span>
+              </button>
             </td>
           </tr>
         </table>
@@ -52,6 +61,42 @@
       <div class="tool-description">
         <p><strong>Measure:</strong> Activate an element ruler for pixel measurements.</p>
         <p><strong>Clear Forms:</strong> Reset all input fields on the page.</p>
+        <p><strong>Color Picker:</strong> Hover elements with zoom, click to copy HEX.</p>
+        <p><strong>Color Palette Extractor:</strong> Extract all colors from the page, view frequency counts.</p>
+      </div>
+
+      <div id="colorPickerResult" class="color-result" style="display: none">
+        <div class="color-result-header">Latest picked color</div>
+        <div class="color-result-row">
+          <div id="colorSwatch" class="color-swatch" aria-label="Selected color swatch"></div>
+          <div class="color-values">
+            <div><strong>HEX:</strong> <span id="colorHexValue">-</span></div>
+            <div><strong>RGB:</strong> <span id="colorRgbValue">-</span></div>
+            <div id="colorCopyStatus" class="color-copy-status"></div>
+          </div>
+          <button id="deleteColorBtn" class="delete-color-btn" aria-label="Delete saved color">✕</button>
+        </div>
+      </div>
+
+      <div id="colorPaletteResult" class="color-palette-result" style="display: none">
+        <div class="color-palette-header">
+          <span>Page Color Palette</span>
+          <button class="reset-palette-btn" id="resetPaletteBtn" aria-label="Reset color palette">Reset</button>
+        </div>
+        <div class="color-palette-controls">
+          <div class="toggle-group">
+            <label class="toggle-label">Format:</label>
+            <button class="toggle-button active" data-format="hex" id="hexToggleBtn">HEX</button>
+            <button class="toggle-button" data-format="rgb" id="rgbToggleBtn">RGB</button>
+          </div>
+          <div class="toggle-group">
+            <label class="toggle-label">Scan:</label>
+            <button class="toggle-button active" data-mode="css" id="cssToggleBtn">CSS Only</button>
+            <button class="toggle-button" data-mode="pixel" id="pixelToggleBtn">CSS + Pixel</button>
+          </div>
+        </div>
+        <div id="colorGridContainer" class="color-grid-container"></div>
+        <div id="colorPaletteStatus" class="color-palette-status"></div>
       </div>
 
       <!-- Reset URL Parameters Section -->
@@ -91,6 +136,8 @@
           </svg>
           <span class="section-title">Screenshots</span>
         </div>
+
+        <div id="captureWarning" class="status-message status-hidden"></div>
 
         <div class="wp-button-grid">
           <table class="wp-button-table">
@@ -290,27 +337,9 @@
           <div class="clipboard-header">
             Clipboard Contents:
             <button id="refreshClipboardBtn" class="clipboard-refresh-btn" title="Refresh clipboard content">🔄</button>
+            <button id="deleteClipboardBtn" class="delete-clipboard-btn" aria-label="Clear clipboard contents">✕</button>
           </div>
           <div id="clipboardContent" class="clipboard-content"></div>
-        </div>
-
-        <!-- Clear Clipboard Button -->
-        <div class="wp-button-grid">
-          <table class="wp-button-table">
-            <tr>
-              <td class="wp-button-cell">
-                <button id="clearClipboardBtn" class="wp-button clipboard-clear-button">
-                  <span class="wp-button-label">Clear Clipboard</span>
-                </button>
-              </td>
-              <td class="wp-button-cell">
-                <!-- Empty cell for layout -->
-              </td>
-              <td class="wp-button-cell">
-                <!-- Empty cell for layout -->
-              </td>
-            </tr>
-          </table>
         </div>
       </div>
 

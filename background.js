@@ -23,9 +23,40 @@ async function contentScript(tabUrl, tabTitle) {
   const originalScrollX = window.scrollX;
   const originalScrollY = window.scrollY;
 
-  // Ensure scrolling is not blocked
-  document.body.style.overflow = '';
-  document.documentElement.style.overflow = '';
+  function isVisible(element) {
+    const rect = element.getBoundingClientRect();
+    return rect.height > 0 && rect.width > 0 && element.offsetParent !== null;
+  }
+
+  function getScrollRoot() {
+    const scrollingElement = document.scrollingElement || document.documentElement;
+    if (scrollingElement && scrollingElement.scrollHeight > scrollingElement.clientHeight + 50) {
+      return scrollingElement;
+    }
+
+    const candidates = Array.from(document.querySelectorAll('body *')).filter(element => {
+      const style = window.getComputedStyle(element);
+      const overflowY = style.overflowY;
+      return (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay')
+        && element.scrollHeight > element.clientHeight + 50
+        && isVisible(element);
+    });
+
+    if (candidates.length === 0) {
+      return scrollingElement || document.body;
+    }
+
+    return candidates.reduce((best, element) => {
+      const bestDelta = best.scrollHeight - best.clientHeight;
+      const elementDelta = element.scrollHeight - element.clientHeight;
+      return elementDelta > bestDelta ? element : best;
+    }, candidates[0]);
+  }
+
+  const scrollRoot = getScrollRoot();
+  const usingWindowScroll = scrollRoot === document.scrollingElement || scrollRoot === document.documentElement || scrollRoot === document.body;
+  const originalScrollTop = scrollRoot.scrollTop;
+  const originalScrollLeft = scrollRoot.scrollLeft;
 
   // Store original styles of fixed/sticky elements and hide them only after the first capture
   const fixedElements = [];
@@ -44,17 +75,30 @@ async function contentScript(tabUrl, tabTitle) {
   window.__hiHatDebug__ = {
     fixedElements,
     originalScrollX,
-    originalScrollY
+    originalScrollY,
+    originalScrollTop,
+    originalScrollLeft,
+    scrollRoot,
+    usingWindowScroll
   };
 
   // Pre-scrolling logic to trigger lazy loading and determine full page metrics
-  window.scrollTo(0, document.body.scrollHeight);
+  if (usingWindowScroll) {
+    window.scrollTo(0, document.body.scrollHeight);
+  } else {
+    scrollRoot.scrollTop = scrollRoot.scrollHeight;
+  }
   await new Promise(resolve => setTimeout(resolve, 1000));
-  window.scrollTo(0, 0);
+  if (usingWindowScroll) {
+    window.scrollTo(0, 0);
+  } else {
+    scrollRoot.scrollTop = 0;
+  }
   await new Promise(resolve => setTimeout(resolve, 500));
 
-  const viewportHeight = window.innerHeight;
+  const viewportHeight = usingWindowScroll ? window.innerHeight : scrollRoot.clientHeight;
   const pageHeight = Math.max(
+    scrollRoot.scrollHeight,
     document.documentElement.scrollHeight,
     document.body.scrollHeight,
     document.documentElement.offsetHeight,
@@ -116,7 +160,7 @@ chrome.commands.onCommand.addListener(async (command) => {
       });
 
       // Show notification
-      await chrome.tabs.sendMessage(tab.id, {
+      chrome.tabs.sendMessage(tab.id, {
         action: 'showNotification',
         message: 'URL copied to clipboard (Cmd+Shift+C)'
       });
@@ -143,7 +187,7 @@ chrome.commands.onCommand.addListener(async (command) => {
           await chrome.storage.local.set({ 'clipboardUrl': clipboardText });
         } catch (urlError) {
           // Show error notification
-          await chrome.tabs.sendMessage(tab.id, {
+          chrome.tabs.sendMessage(tab.id, {
             action: 'showNotification',
             message: 'Clipboard does not contain a valid URL',
             isError: true
@@ -155,27 +199,6 @@ chrome.commands.onCommand.addListener(async (command) => {
     }
   }
 });
-
-async function getCrawlableLinks(tabId) {
-  const contentScriptReadyPromise = new Promise(resolve => {
-    const listener = (message) => {
-      if (message.action === 'findLinksScriptReady') {
-        chrome.runtime.onMessage.removeListener(listener);
-        resolve();
-      }
-    };
-    chrome.runtime.onMessage.addListener(listener);
-  });
-
-  await chrome.scripting.executeScript({
-    target: { tabId },
-    files: ['scripts/find-links.js'],
-  });
-  await contentScriptReadyPromise;
-
-  const response = await chrome.tabs.sendMessage(tabId, { action: 'findNavLinks' });
-  return response?.links || [];
-}
 
 // Handle messages from content scripts or popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -200,6 +223,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     chrome.storage.local.get(['clipboardUrl'], (result) => {
       sendResponse({ clipboardUrl: result.clipboardUrl || '' });
     });
+    return true;
+  }
+
+  if (request.action === 'toggleDebugMode') {
+    StorageManager.set('isDebugModeEnabled', request.enabled);
+    sendResponse({ success: true });
     return true;
   }
 
@@ -249,7 +278,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           screenshots.map(async ({ dataUrl }) => {
             const response = await fetch(dataUrl);
             const blob = await response.blob();
-            return await createImageBitmap(blob);
+            return await createImageBitmap(blob, {
+              premultiplyAlpha: 'none'
+            });
           })
         );
 
@@ -257,7 +288,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const dpiScale = imageBitmaps[0].height / viewportHeight;
         const scaledPageHeight = Math.round(pageHeight * dpiScale);
         const canvas = new OffscreenCanvas(width, scaledPageHeight);
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { alpha: false });
 
         for (let i = 0; i < imageBitmaps.length; i++) {
           const { scrollY } = screenshots[i];
@@ -361,34 +392,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  if (request.action === 'previewCrawlableLinks') {
-    (async () => {
-      try {
-        const [mainTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (!mainTab?.id) {
-          sendResponse({ success: false, error: 'No active tab' });
-          return;
-        }
-        const links = await getCrawlableLinks(mainTab.id);
-        sendResponse({ success: true, links });
-      } catch (error) {
-        console.error('Error previewing crawlable links:', error);
-        sendResponse({ success: false, error: error.message });
-      }
-    })();
-    return true;
-  }
-
   if (request.action === 'scanAndCapture') {
     (async () => {
       try {
         const [mainTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        const links = request.links ?? await getCrawlableLinks(mainTab.id);
 
-        if (!links.length) {
-          console.warn('No crawlable links to capture');
-          return;
-        }
+        const contentScriptReadyPromise = new Promise(resolve => {
+          const listener = (message) => {
+            if (message.action === 'findLinksScriptReady') {
+              chrome.runtime.onMessage.removeListener(listener);
+              resolve();
+            }
+          };
+          chrome.runtime.onMessage.addListener(listener);
+        });
+
+        await chrome.scripting.executeScript({
+          target: { tabId: mainTab.id },
+          files: ['scripts/find-links.js'],
+        });
+        await contentScriptReadyPromise; // Wait for the content script to be ready
+
+        const { links } = await chrome.tabs.sendMessage(mainTab.id, { action: 'findNavLinks' });
 
         const screenshotResults = await Promise.all(
           links.map(async (link) => {
@@ -419,27 +444,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           zip.file(filename, blob);
         });
 
-        const zipBlob = await zip.generateAsync({ type: 'blob' });
-        const dataUrl = await blobToDataUrl(zipBlob);
-        await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(zipBlob);
+        reader.onloadend = () => {
+          const dataUrl = reader.result;
           chrome.downloads.download({
             url: dataUrl,
             filename: 'screenshots.zip',
             saveAs: true
-          }, (downloadId) => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-              return;
-            }
-            resolve(downloadId);
           });
-        });
+        };
 
       } catch (error) {
         console.error("Error scanning and capturing:", error);
       }
     })();
-    return true;
   }
 });
 
@@ -472,35 +491,43 @@ async function captureAndStitch(tabId, url, title) {
       }
 
       console.log('scrolling to', scrollY, 'step', i + 1, 'of', numScrolls);
-      if (i > 0) {
-        await chrome.scripting.executeScript({
-          target: { tabId },
-          func: () => {
-            const state = window.__hiHatDebug__;
-            if (!state) {
-              return false;
-            }
-            state.fixedElements.forEach(item => {
-              item.element.style.setProperty('display', 'none', 'important');
-            });
-            return true;
-          }
-        });
-      }
-
       await chrome.scripting.executeScript({
         target: { tabId },
+        func: () => {
+          const state = window.__hiHatDebug__;
+          if (!state) {
+            return false;
+          }
+          state.fixedElements.forEach(item => {
+            item.element.style.setProperty('visibility', 'hidden', 'important');
+          });
+          return true;
+        }
+      });
+
+      const [scrollResult] = await chrome.scripting.executeScript({
+        target: { tabId },
         func: (y) => {
-          window.scrollTo(0, y);
-          return window.scrollY;
+          const state = window.__hiHatDebug__;
+          if (!state) {
+            return y;
+          }
+          const root = state.scrollRoot || window;
+          if (state.usingWindowScroll) {
+            window.scrollTo(0, y);
+            return window.scrollY;
+          }
+          root.scrollTop = y;
+          return root.scrollTop;
         },
         args: [scrollY]
       });
+      const actualScrollY = scrollResult && scrollResult.result != null ? scrollResult.result : scrollY;
 
       await new Promise(resolve => setTimeout(resolve, 500));
       const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
-      console.log('captured viewport', i, 'dataUrl length', dataUrl?.length || 0);
-      screenshots.push({ dataUrl, scrollY });
+      console.log('captured viewport', i, 'scrollY', actualScrollY, 'dataUrl length', dataUrl?.length || 0);
+      screenshots.push({ dataUrl, scrollY: actualScrollY });
     }
   } finally {
     await chrome.scripting.executeScript({
@@ -531,7 +558,13 @@ async function captureAndStitch(tabId, url, title) {
           }
         });
 
-        window.scrollTo(state.originalScrollX, state.originalScrollY);
+        if (state.usingWindowScroll) {
+          window.scrollTo(state.originalScrollX, state.originalScrollY);
+        } else if (state.scrollRoot) {
+          state.scrollRoot.scrollTop = state.originalScrollTop;
+          state.scrollRoot.scrollLeft = state.originalScrollLeft;
+        }
+
         delete window.__hiHatDebug__;
         return true;
       }
@@ -542,7 +575,9 @@ async function captureAndStitch(tabId, url, title) {
     screenshots.map(async ({ dataUrl }) => {
       const response = await fetch(dataUrl);
       const blob = await response.blob();
-      return await createImageBitmap(blob);
+      return await createImageBitmap(blob, {
+        premultiplyAlpha: 'none'
+      });
     })
   );
 
@@ -550,7 +585,7 @@ async function captureAndStitch(tabId, url, title) {
   const dpiScale = imageBitmaps[0].height / viewportHeight;
   const scaledPageHeight = Math.round(pageHeight * dpiScale);
   const canvas = new OffscreenCanvas(width, scaledPageHeight);
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { alpha: false });
 
   for (let i = 0; i < imageBitmaps.length; i++) {
     const { scrollY } = screenshots[i];
@@ -570,6 +605,33 @@ async function captureAndStitch(tabId, url, title) {
   return { filename, blob };
 }
 
+// Handle tab updates for WordPress detection
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  // Only act when the page has finished loading
+  if (changeInfo.status === 'complete' && tab.url) {
+    // Skip restricted pages
+    const restrictedPrefixes = ['chrome://', 'chrome-extension://', 'edge://', 'about:'];
+    const isRestricted = restrictedPrefixes.some(prefix => tab.url.startsWith(prefix));
+
+    if (!isRestricted) {
+      const isDebugModeEnabled = await StorageManager.get('isDebugModeEnabled');
+      try {
+        if (isDebugModeEnabled) {
+          chrome.tabs.sendMessage(tabId, { action: 'createBreakpointBox' });
+        } else {
+          chrome.tabs.sendMessage(tabId, { action: 'removeBreakpointBox' });
+          const url = new URL(tab.url);
+          if (url.searchParams.has('debug')) {
+            url.searchParams.delete('debug');
+            chrome.tabs.update(tabId, { url: url.toString() });
+          }
+        }
+      } catch (error) {
+        // Tab or extension context may be invalid, ignore silently
+      }
+    }
+  }
+});
 
 // Handle extension icon click (optional - alternative to popup)
 chrome.action.onClicked.addListener((tab) => {

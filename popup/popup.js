@@ -7,9 +7,33 @@
 document.addEventListener('DOMContentLoaded', function () {
   const clearFormsBtn = document.getElementById('clearFormsBtn');
   const measureBtn = document.getElementById('measureBtn');
+  const colorPickerBtn = document.getElementById('colorPickerBtn');
+  const colorPaletteBtn = document.getElementById('colorPaletteBtn');
   const scanBtn = document.getElementById('scanBtn');
   const resetParamsBtn = document.getElementById('resetParamsBtn');
   const statusDiv = document.getElementById('status');
+  const captureWarningDiv = document.getElementById('captureWarning');
+  const colorPickerResult = document.getElementById('colorPickerResult');
+  const colorSwatch = document.getElementById('colorSwatch');
+  const colorHexValue = document.getElementById('colorHexValue');
+  const colorRgbValue = document.getElementById('colorRgbValue');
+  const colorCopyStatus = document.getElementById('colorCopyStatus');
+  const deleteColorBtn = document.getElementById('deleteColorBtn');
+
+  // Color Palette Extractor elements
+  const colorPaletteResult = document.getElementById('colorPaletteResult');
+  const colorGridContainer = document.getElementById('colorGridContainer');
+  const colorPaletteStatus = document.getElementById('colorPaletteStatus');
+  const hexToggleBtn = document.getElementById('hexToggleBtn');
+  const rgbToggleBtn = document.getElementById('rgbToggleBtn');
+  const cssToggleBtn = document.getElementById('cssToggleBtn');
+  const pixelToggleBtn = document.getElementById('pixelToggleBtn');
+  const resetPaletteBtn = document.getElementById('resetPaletteBtn');
+
+  // Color Palette state
+  let currentPalette = [];
+  let currentFormat = 'hex';
+  let currentExtractionMode = 'css';
 
 
   // WordPress elements
@@ -35,7 +59,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const clipboardDisplay = document.getElementById('clipboardDisplay');
   const clipboardContent = document.getElementById('clipboardContent');
   const refreshClipboardBtn = document.getElementById('refreshClipboardBtn');
-  const clearClipboardBtn = document.getElementById('clearClipboardBtn');
+  const deleteClipboardBtn = document.getElementById('deleteClipboardBtn');
 
   // Clear Cache elements
   const clearCacheBtn = document.getElementById('clearCacheBtn');
@@ -119,8 +143,62 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+  function formatRgb(rgb) {
+    if (!rgb || typeof rgb.r !== 'number' || typeof rgb.g !== 'number' || typeof rgb.b !== 'number') {
+      return '-';
+    }
+    return `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+  }
+
+  function updateColorResult(colorData, copyStatusText = '') {
+    if (!colorPickerResult || !colorHexValue || !colorRgbValue || !colorSwatch || !colorCopyStatus) {
+      return;
+    }
+
+    if (!colorData || !colorData.hex) {
+      colorPickerResult.style.display = 'none';
+      colorHexValue.textContent = '-';
+      colorRgbValue.textContent = '-';
+      colorSwatch.style.backgroundColor = '#ffffff';
+      colorCopyStatus.textContent = '';
+      return;
+    }
+
+    colorPickerResult.style.display = 'block';
+    colorHexValue.textContent = colorData.hex;
+    colorRgbValue.textContent = formatRgb(colorData.rgb);
+    colorSwatch.style.backgroundColor = colorData.hex;
+    colorCopyStatus.textContent = copyStatusText;
+  }
+
+  async function loadSavedColorResult() {
+    try {
+      // Color result is saved but not displayed automatically to keep popup clean
+      // User can view it by opening the popup's developer tools if needed
+      await chrome.storage.local.get(['lastPickedColor']);
+    } catch (error) {
+      // Ignore storage read errors for color result hydration
+    }
+  }
+
+  async function deleteColorResult() {
+    try {
+      await chrome.storage.local.remove(['lastPickedColor']);
+      updateColorResult(null);
+      showStatus('Picked color deleted', false);
+    } catch (error) {
+      showStatus('Failed to delete color', true);
+    }
+  }
+
+  // Delete color button click handler
+  deleteColorBtn.addEventListener('click', function () {
+    deleteColorResult();
+  });
+
   // Initialize WordPress detection
   initializeWordPress();
+  loadSavedColorResult();
 
   // Add refresh button click handler
   refreshClipboardBtn.addEventListener('click', function () {
@@ -128,8 +206,8 @@ document.addEventListener('DOMContentLoaded', function () {
     refreshClipboard();
   });
 
-  // Add clear clipboard button click handler
-  clearClipboardBtn.addEventListener('click', function () {
+  // Add delete clipboard button click handler
+  deleteClipboardBtn.addEventListener('click', function () {
     clearClipboard();
   });
 
@@ -171,6 +249,32 @@ document.addEventListener('DOMContentLoaded', function () {
     setTimeout(() => {
       statusDiv.className = 'status-message status-hidden';
     }, 2000);
+  }
+
+  function showCaptureWarning(message) {
+    captureWarningDiv.textContent = message;
+    captureWarningDiv.className = 'status-message status-warning';
+  }
+
+  function clearCaptureWarning() {
+    captureWarningDiv.textContent = '';
+    captureWarningDiv.className = 'status-message status-hidden';
+  }
+
+  // Copy text to clipboard and show status
+  async function copyTextWithResult(text) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        showStatus(`Copied: ${text}`);
+        return true;
+      }
+    } catch (error) {
+      console.error('Clipboard error:', error);
+    }
+
+    showStatus('Could not copy to clipboard', true);
+    return false;
   }
 
   function showCacheStatus(message, isError = false, duration = 3000) {
@@ -284,6 +388,50 @@ document.addEventListener('DOMContentLoaded', function () {
 
     } catch (error) {
       showStatus('Error: Could not toggle measurement - ' + error.message, true);
+    }
+  });
+
+  colorPickerBtn.addEventListener('click', async function () {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+      if (!tab || !tab.url) {
+        showStatus('Unable to get current tab', true);
+        return;
+      }
+
+      if (isRestrictedTabUrl(tab.url)) {
+        showStatus('Cannot use color picker on this page', true);
+        return;
+      }
+
+      const response = await chrome.tabs.sendMessage(tab.id, { action: 'toggleColorPicker' });
+
+      if (!response || !response.success) {
+        showStatus(response ? response.message : 'Could not toggle color picker', true);
+        return;
+      }
+
+      updateButtonState(colorPickerBtn, !!response.active);
+
+      if (response.color) {
+        const copiedMessage = response.color.copySuccess === false
+          ? 'Copy failed in page context'
+          : 'HEX copied to clipboard';
+        updateColorResult(response.color, copiedMessage);
+      }
+
+      showStatus(response.message, false);
+
+      // Close the popup once picker is active so the next click on the page
+      // immediately performs the color pick instead of dismissing the popup.
+      if (response.active) {
+        setTimeout(() => {
+          window.close();
+        }, 100);
+      }
+    } catch (error) {
+      showStatus('Error: Content script not responding. Try refreshing the page.', true);
     }
   });
 
@@ -681,9 +829,14 @@ document.addEventListener('DOMContentLoaded', function () {
           origins: [origin]
         });
 
-        // Show success state
+        const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (currentTab && currentTab.id) {
+          await chrome.tabs.reload(currentTab.id);
+        }
+
+        // Show success state and reload notice
         btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
-        showCacheStatus('Cache cleared successfully!');
+        showCacheStatus('Cache cleared successfully! Reloading...');
 
         // Reset button after delay
         setTimeout(() => {
@@ -925,14 +1078,21 @@ document.addEventListener('DOMContentLoaded', function () {
       const origin = await getCurrentOrigin();
 
       if (origin) {
-        await chrome.browsingData.remove({
-          origins: [origin]
-        }, {
-          webSQL: true
-        });
+        try {
+          await chrome.browsingData.remove({
+            origins: [origin]
+          }, {
+            webSQL: true
+          });
 
-        btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
-        showCacheStatus('Web SQL cleared successfully!');
+          btn.innerHTML = '<span class="wp-button-label">✓ Cleared!</span>';
+          showCacheStatus('Web SQL cleared successfully!');
+        } catch (error) {
+          btn.innerHTML = originalContent;
+          btn.disabled = false;
+          showCacheStatus('Web SQL is not supported in this browser.', true);
+          return;
+        }
 
         setTimeout(() => {
           btn.innerHTML = originalContent;
@@ -972,8 +1132,7 @@ document.addEventListener('DOMContentLoaded', function () {
           localStorage: true,
           indexedDB: true,
           serviceWorkers: true,
-          cacheStorage: true,
-          webSQL: true
+          cacheStorage: true
         });
 
         const formDataPromise = chrome.browsingData.removeFormData({});
@@ -1058,18 +1217,104 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
+  async function detectFullPageCaptureRisk(tabId) {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        const scrollingElement = document.scrollingElement || document.documentElement;
+        const isVisible = (element) => {
+          const rect = element.getBoundingClientRect();
+          return rect.height > 0 && rect.width > 0 && element.offsetParent !== null;
+        };
+
+        const candidates = Array.from(document.querySelectorAll('body *')).filter(element => {
+          const style = window.getComputedStyle(element);
+          const overflowY = style.overflowY;
+          return (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay')
+            && element.scrollHeight > element.clientHeight + 50
+            && isVisible(element);
+        });
+
+        const scrollRoot = candidates.length === 0
+          ? (scrollingElement || document.body)
+          : candidates.reduce((best, element) => {
+            const bestDelta = best.scrollHeight - best.clientHeight;
+            const elementDelta = element.scrollHeight - element.clientHeight;
+            return elementDelta > bestDelta ? element : best;
+          }, candidates[0]);
+
+        const usingWindowScroll = scrollRoot === document.scrollingElement
+          || scrollRoot === document.documentElement
+          || scrollRoot === document.body;
+
+        const pageHeight = Math.max(
+          scrollRoot.scrollHeight,
+          document.documentElement.scrollHeight,
+          document.body.scrollHeight
+        );
+        const viewportHeight = usingWindowScroll ? window.innerHeight : scrollRoot.clientHeight;
+
+        return {
+          internalScroll: !usingWindowScroll,
+          pageHeight,
+          viewportHeight,
+          riskLevel: !usingWindowScroll,
+          scrollRootTag: scrollRoot.tagName,
+          scrollRootClasses: scrollRoot.className || null
+        };
+      }
+    });
+
+    return result?.result || null;
+  }
+
   /**
    * Takes a screenshot of the full page.
    */
   async function takeFullPageScreenshot() {
-    showStatus('Taking full page screenshot...');
-    chrome.runtime.sendMessage({ action: 'fullPageScreenshot' }, (response) => {
-      if (chrome.runtime.lastError || !response || !response.success) {
-        showStatus('Failed to request full page screenshot.', true);
-      } else {
-        showStatus('Full page screenshot request sent. Waiting for download...', false);
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab) {
+        showStatus('Cannot access tab.', true);
+        return;
       }
-    });
+
+      clearCaptureWarning();
+      let statusMessage = 'Taking full page screenshot...';
+      let warning = null;
+
+      try {
+        const tabUrl = new URL(tab.url);
+        if (tabUrl.hostname === 'mail.google.com') {
+          warning = 'Warning: Gmail uses an internal scroll container and may not stitch correctly. The capture may be imperfect.';
+        }
+      } catch (urlError) {
+        // ignore URL parsing errors and fall back to DOM risk detection
+      }
+
+      if (!warning) {
+        const risk = await detectFullPageCaptureRisk(tab.id);
+        if (risk && risk.riskLevel) {
+          warning = 'Warning: this page uses an internal scroll container and may not stitch perfectly.';
+        }
+      }
+
+      if (warning) {
+        showCaptureWarning(warning);
+        statusMessage = 'Starting full page screenshot with capture warning...';
+      }
+
+      showStatus(statusMessage, false);
+      chrome.runtime.sendMessage({ action: 'fullPageScreenshot' }, (response) => {
+        if (chrome.runtime.lastError || !response || !response.success) {
+          showStatus('Failed to request full page screenshot.', true);
+        } else {
+          showStatus('Full page screenshot request sent. Waiting for download...', false);
+        }
+      });
+    } catch (error) {
+      showStatus('Error detecting capture risk.', true);
+    }
   }
 
   fullPageScreenshotBtn.addEventListener('click', takeFullPageScreenshot);
@@ -1155,6 +1400,143 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   scanAndCaptureBtn.addEventListener('click', openScanCaptureConfirmation);
+
+  // Color Palette Extractor button handler
+  colorPaletteBtn.addEventListener('click', async function () {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+      if (!tab || !tab.url) {
+        showStatus('Unable to get current tab', true);
+        return;
+      }
+
+      if (isRestrictedTabUrl(tab.url)) {
+        showStatus('Cannot extract colors from this page', true);
+        return;
+      }
+
+      colorPaletteStatus.textContent = 'Extracting colors...';
+      colorPaletteResult.style.display = 'block';
+
+      const response = await chrome.tabs.sendMessage(tab.id, {
+        action: 'extractColorPalette',
+        extractionMode: currentExtractionMode
+      });
+
+      if (!response || !response.success) {
+        showStatus(response ? response.message : 'Could not extract colors', true);
+        colorPaletteStatus.textContent = 'Error extracting colors';
+        return;
+      }
+
+      currentPalette = response.colors;
+      displayColorPalette(response.colors, currentFormat);
+      colorPaletteStatus.textContent = `Found ${response.colors.length} unique colors`;
+      showStatus(`Extracted ${response.colors.length} colors from page`);
+
+    } catch (error) {
+      showStatus('Error: Content script not responding. Try refreshing the page.', true);
+      colorPaletteStatus.textContent = 'Error extracting colors';
+    }
+  });
+
+  // Display color palette grid
+  function displayColorPalette(colors, format = 'hex') {
+    currentFormat = format;
+    colorGridContainer.innerHTML = '';
+
+    if (!colors || colors.length === 0) {
+      colorGridContainer.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 20px; color: #6b7280;">No colors found</div>';
+      return;
+    }
+
+    colors.forEach(colorData => {
+      const swatchDiv = document.createElement('div');
+      swatchDiv.className = 'color-swatch-item';
+
+      const swatchDisplay = document.createElement('div');
+      swatchDisplay.className = 'color-swatch-display';
+      swatchDisplay.style.backgroundColor = colorData.hex;
+      swatchDisplay.title = `${colorData.hex} - Used ${colorData.frequency || 1} time(s)`;
+
+      const swatchLabel = document.createElement('div');
+      swatchLabel.className = 'color-swatch-label';
+      if (format === 'hex') {
+        swatchLabel.textContent = colorData.hex;
+      } else {
+        const rgb = colorData.rgb;
+        swatchLabel.textContent = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+      }
+
+      swatchDiv.appendChild(swatchDisplay);
+      swatchDiv.appendChild(swatchLabel);
+
+      // Add click to copy functionality
+      swatchDiv.addEventListener('click', () => {
+        const textToCopy = format === 'hex' ? colorData.hex : `rgb(${colorData.rgb.r}, ${colorData.rgb.g}, ${colorData.rgb.b})`;
+        copyTextWithResult(textToCopy);
+      });
+
+      colorGridContainer.appendChild(swatchDiv);
+    });
+  }
+
+  // Toggle format between HEX and RGB
+  function setupFormatToggle() {
+    hexToggleBtn.addEventListener('click', () => {
+      currentFormat = 'hex';
+      hexToggleBtn.classList.add('active');
+      rgbToggleBtn.classList.remove('active');
+      displayColorPalette(currentPalette, 'hex');
+    });
+
+    rgbToggleBtn.addEventListener('click', () => {
+      currentFormat = 'rgb';
+      rgbToggleBtn.classList.add('active');
+      hexToggleBtn.classList.remove('active');
+      displayColorPalette(currentPalette, 'rgb');
+    });
+  }
+
+  // Toggle extraction mode between CSS-only and CSS+Pixel
+  function setupExtractionModeToggle() {
+    cssToggleBtn.addEventListener('click', async () => {
+      currentExtractionMode = 'css';
+      cssToggleBtn.classList.add('active');
+      pixelToggleBtn.classList.remove('active');
+
+      // Re-trigger extraction with new mode if we have colors displayed
+      if (currentPalette.length > 0) {
+        colorPaletteBtn.click();
+      }
+    });
+
+    pixelToggleBtn.addEventListener('click', async () => {
+      currentExtractionMode = 'pixel';
+      pixelToggleBtn.classList.add('active');
+      cssToggleBtn.classList.remove('active');
+
+      // Re-trigger extraction with new mode if we have colors displayed
+      if (currentPalette.length > 0) {
+        colorPaletteBtn.click();
+      }
+    });
+  }
+
+  // Reset color palette display
+  function resetColorPalette() {
+    currentPalette = [];
+    colorGridContainer.innerHTML = '';
+    colorPaletteResult.style.display = 'none';
+    colorPaletteStatus.textContent = '';
+    showStatus('Color palette cleared');
+  }
+
+  // Initialize color palette toggles
+  setupFormatToggle();
+  setupExtractionModeToggle();
+  resetPaletteBtn.addEventListener('click', resetColorPalette);
   scanCaptureConfirmBtn.addEventListener('click', startScanAndCapture);
   scanCaptureCancelBtn.addEventListener('click', hideScanCaptureModal);
   scanCaptureModalClose.addEventListener('click', hideScanCaptureModal);
